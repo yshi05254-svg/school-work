@@ -69,6 +69,21 @@ class ClientLocationHooks(private val module: XposedModule) {
                     LocationListener::class.java.isAssignableFrom(m.parameterTypes[0]) -> {
                     installRemove(m); n++
                 }
+                m.name == "isProviderEnabled" && m.parameterTypes.size == 1 -> {
+                    installProviderQuery(m, pkg, uid); n++
+                }
+                m.name == "getProviders" && m.parameterTypes.size == 1 -> {
+                    installProviderList(m, pkg, uid); n++
+                }
+                m.name == "getAllProviders" && m.parameterTypes.isEmpty() -> {
+                    installProviderList(m, pkg, uid); n++
+                }
+                m.name == "getBestProvider" && m.parameterTypes.size == 2 -> {
+                    installBestProvider(m, pkg, uid); n++
+                }
+                m.name == "registerGnssStatusCallback" -> {
+                    installGnssCallback(m, pkg, uid); n++
+                }
             }
         }
         module.log(Log.INFO, "VEN11", "client location hooks installed=$n pkg=$pkg")
@@ -253,6 +268,97 @@ class ClientLocationHooks(private val module: XposedModule) {
                 }.also {
                     swapped.forEach { (o, _) -> synchronized(wrappers) { wrappers.remove(o) } }
                 }
+            }
+        })
+    }
+
+    // ---------------------------------------------------------------- provider 查询（覆盖域扩展 1b）
+
+    /**
+     * proceed-first：权限异常照抛；域未启用/无环境时透传真实值。
+     * isProviderEnabled：有环境时把主 provider（gps/fused）报为 enabled——
+     * 避免应用"先查开关再定位"时被真实开关（如用户关闭定位）短路。
+     */
+    private fun installProviderQuery(m: Method, pkg: String, uid: Int) {
+        module.hook(m).setId("ven11.loc.prov.${sig(m)}").intercept(object : XposedInterface.Hooker {
+            override fun intercept(chain: XposedInterface.Chain): Any? {
+                val real = chain.proceed()
+                return runCatching {
+                    val eff = dev.ven11.module.ipc.PolicyResolver.resolve(pkg, uid)
+                    if (!eff.domainEnabled(dev.ven11.module.ipc.PolicyResolver.Domain.LOCATION)) return real
+                    if (eff.environment == null) return real
+                    val provider = chain.args.firstOrNull() as? String ?: return real
+                    val want = provider in listOf("gps", "fused", "network")
+                    (if (want) true else real as? Boolean ?: real)
+                }.getOrElse { real }
+            }
+        })
+    }
+
+    /** getProviders/getAllProviders：真实列表为底，补齐 gps/fused（去重，保持原顺序语义） */
+    private fun installProviderList(m: Method, pkg: String, uid: Int) {
+        module.hook(m).setId("ven11.loc.provlist.${sig(m)}").intercept(object : XposedInterface.Hooker {
+            override fun intercept(chain: XposedInterface.Chain): Any? {
+                val real = chain.proceed()
+                return runCatching {
+                    val eff = dev.ven11.module.ipc.PolicyResolver.resolve(pkg, uid)
+                    if (!eff.domainEnabled(dev.ven11.module.ipc.PolicyResolver.Domain.LOCATION)) return real
+                    if (eff.environment == null) return real
+                    val list = real as? List<*> ?: return real
+                    val out = LinkedHashSet(list)
+                    out.add("gps")
+                    ArrayList(out)
+                }.getOrElse { real }
+            }
+        })
+    }
+
+    /** getBestProvider：有环境且真实结果为 null 时兜底 "gps"（其余透传，不覆盖应用的 criteria 选择） */
+    private fun installBestProvider(m: Method, pkg: String, uid: Int) {
+        module.hook(m).setId("ven11.loc.best.${sig(m)}").intercept(object : XposedInterface.Hooker {
+            override fun intercept(chain: XposedInterface.Chain): Any? {
+                val real = chain.proceed()
+                return runCatching {
+                    val eff = dev.ven11.module.ipc.PolicyResolver.resolve(pkg, uid)
+                    if (!eff.domainEnabled(dev.ven11.module.ipc.PolicyResolver.Domain.LOCATION)) return real
+                    if (eff.environment == null) return real
+                    if (real == null) "gps" else real
+                }.getOrElse { real }
+            }
+        })
+    }
+
+    // ---------------------------------------------------------------- GnssStatus 回调（覆盖域扩展 1a）
+
+    /**
+     * GnssStatus 无公开构造（合成需深反射隐藏 SatelliteInfo，高险低益），采用
+     * "注册包装 + 交付抑制"策略：卫星状态回调在严格模式下整体抑制（应用读不到
+     * 与伪装坐标矛盾的卫星视图），兼容模式透传真实值。onLocationChanged 不经
+     * 此回调（走 listener 路径，已另行包装）。
+     */
+    private fun installGnssCallback(m: Method, pkg: String, uid: Int) {
+        module.hook(m).setId("ven11.loc.gnss.${sig(m)}").intercept(object : XposedInterface.Hooker {
+            override fun intercept(chain: XposedInterface.Chain): Any? {
+                val registered = chain.proceed()
+                val cb = chain.args.firstOrNull { it is android.location.GnssStatus.Callback }
+                    ?: return registered
+                runCatching {
+                    dev.ven11.module.hook.util.CallbackHooks.install(
+                        module, "LOC-GNSS", cb, null,
+                        methodNames = setOf("onSatelliteStatusChanged"),
+                        baseFallback = android.location.GnssStatus.Callback::class.java,
+                    ) { _, _ ->
+                        val eff = dev.ven11.module.ipc.PolicyResolver.resolve(pkg, uid)
+                        if (eff.domainEnabled(dev.ven11.module.ipc.PolicyResolver.Domain.LOCATION) &&
+                            eff.environment != null && eff.policy?.strictMode == true
+                        ) {
+                            null // 严格模式：抑制卫星状态交付
+                        } else {
+                            chain.proceed()
+                        }
+                    }
+                }.onFailure { dev.ven11.module.ProbeLog.log("LOC-GNSS-FAIL $it") }
+                return registered
             }
         })
     }

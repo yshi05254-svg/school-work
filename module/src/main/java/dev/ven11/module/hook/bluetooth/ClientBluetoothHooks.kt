@@ -73,8 +73,65 @@ class ClientBluetoothHooks(private val module: XposedModule) {
         var n = 0
         n += installAdapterHooks(cl, pkg, uid)
         n += installDeviceHooks(cl, pkg, uid)
+        n += installLeScanHooks(cl, pkg, uid)
         module.log(Log.INFO, TAG, "client bluetooth hooks installed=$n pkg=$pkg")
         dev.ven11.module.ProbeLog.log("BT-HOOKS n=$n pkg=$pkg")
+        return n
+    }
+
+    /**
+     * BLE 扫描（覆盖域扩展 4a）：信标定位的唯一入口。注册（startScan 各公开
+     * ScanCallback 重载）照常 proceed，经 CallbackHooks 在回调具体类上改写交付：
+     *  - 严格模式（缺省）：抑制 onScanResult / onBatchScanResults 交付（无 BLE
+     *    环境数据 → 空视图，与 bonded 严格语义一致）；onScanFailed 透传；
+     *  - 兼容模式：透传真实扫描（真实设备 ∪ 环境设备的合成留待 model 增补）。
+     * PendingIntent 变体不做：投递经系统 PendingIntent 通道，客户端拦不到
+     * （覆盖计划 4a 备注，留系统侧）。
+     */
+    private fun installLeScanHooks(cl: ClassLoader, pkg: String, uid: Int): Int {
+        val cls = runCatching { cl.loadClass("android.bluetooth.le.BluetoothLeScanner") }.getOrNull()
+            ?: return 0
+        val cbBase = runCatching { cl.loadClass("android.bluetooth.le.ScanCallback") }.getOrNull()
+            ?: return 0
+        var n = 0
+        for (m in cls.declaredMethods) {
+            if (m.name != "startScan") continue
+            if (m.parameterTypes.none { cbBase.isAssignableFrom(it) }) continue
+            runCatching {
+                module.hook(m).setId("ven11.bt.le.start/${m.parameterTypes.size}")
+                    .intercept(object : XposedInterface.Hooker {
+                        override fun intercept(chain: XposedInterface.Chain): Any? {
+                            val registered = chain.proceed()
+                            val cb = chain.args.firstOrNull { cbBase.isInstance(it) }
+                                ?: return registered
+                            runCatching {
+                                dev.ven11.module.hook.util.CallbackHooks.install(
+                                    module, "BT-LE", cb, null,
+                                    methodNames = setOf("onScanResult", "onBatchScanResults"),
+                                    baseFallback = cbBase,
+                                ) { chain, name ->
+                                    val ctx = resolveCtx(pkg, uid) ?: return@install chain.proceed()
+                                    if (ctx.strict) {
+                                        // 严格模式：单条抑制（返回 null）；批量交空表
+                                        if (name == "onBatchScanResults") {
+                                            val args = chain.args
+                                            args[0] = ArrayList<Any?>()
+                                            chain.proceed(args.toTypedArray())
+                                        } else {
+                                            null
+                                        }
+                                    } else {
+                                        chain.proceed()
+                                    }
+                                }
+                            }.onFailure { dev.ven11.module.ProbeLog.log("BT-LE-FAIL $it") }
+                            return registered
+                        }
+                    })
+            }.onSuccess { n++ }.onFailure {
+                module.log(Log.WARN, TAG, "bt le hook failed: $it")
+            }
+        }
         return n
     }
 

@@ -47,7 +47,7 @@ import java.util.concurrent.ConcurrentHashMap
 @Suppress("DEPRECATION")
 object CellInfoFactory {
 
-    private enum class Rat(val infoCls: String, val idCls: String, val sigCls: String) {
+    internal enum class Rat(val infoCls: String, val idCls: String, val sigCls: String) {
         GSM(
             "android.telephony.CellInfoGsm",
             "android.telephony.CellIdentityGsm",
@@ -205,7 +205,7 @@ object CellInfoFactory {
 
     /** R+ 框架侧 getCellLocation 的返回对象（审查 4：返回 GsmCellLocation 会 ClassCastException） */
     fun buildIdentity(c: VirtualCell): CellIdentity? {
-        val rat = ratOf(c) ?: return null
+        val rat = ratOf(c.radioType) ?: return null
         val idCls = C(rat.idCls) ?: return null
         val id = newInstance(idCls) ?: return null
         fillIdentity(id, rat, c)
@@ -219,7 +219,7 @@ object CellInfoFactory {
     /** 按 radioType 明确分支构造，不再用"lac 是否为 0"猜制式（审查 8） */
     fun asGsmCellLocation(c: VirtualCell): GsmCellLocation {
         val loc = GsmCellLocation()
-        return when (ratOf(c)) {
+        return when (ratOf(c.radioType)) {
             Rat.LTE -> loc.apply {
                 if (c.tac != 0 || c.ci != 0L) setLacAndCid(loc, c.tac, c.ci.toInt())
                 if (c.pci != 0) setPsc(loc, c.pci) // AOSP：LTE 的 psc 槽位承载 pci
@@ -267,7 +267,7 @@ object CellInfoFactory {
 
     // ---- 内部构造 ------------------------------------------------------
 
-    private fun ratOf(c: VirtualCell): Rat? = when (c.radioType.trim().lowercase()) {
+    private fun ratOf(radioType: String): Rat? = when (radioType.trim().lowercase()) {
         "gsm", "edge", "gprs" -> Rat.GSM
         "wcdma", "umts", "hsdpa", "hsupa", "hspa", "hspap" -> Rat.WCDMA
         "lte", "4g" -> Rat.LTE
@@ -277,7 +277,7 @@ object CellInfoFactory {
     }
 
     private fun create(c: VirtualCell): CellInfo? {
-        val rat = ratOf(c)
+        val rat = ratOf(c.radioType)
         if (rat == null) {
             // 审查 3：未知制式（CDMA 等）显式拒绝并记录，不再静默当作 WCDMA
             failOnce("rat:${c.radioType}", "CELL-RAT-REJECT type=${c.radioType}")
@@ -395,13 +395,13 @@ object CellInfoFactory {
     }
 
     /**
-     * 信号强度对象构造 + 挂载。返回 false = 必填失败（强度类不可用/构造失败/
-     * CellInfo 侧字段定位失败/写入失败），create() 弃整条；
-     * 强度对象内部的分量字段（rsrq/sinr/asu 等）为可选，写不上不影响 dbm 主读数。
+     * per-rat 信号强度对象构造（覆盖域扩展共享：fillSignal 与电话监听钩
+     * onSignalStrengthsChanged 共用同一构造语义）。失败返回 null。
+     * rsrq/sinr/asu 等分量为可选，dbm 主读数写不上才失败。
      */
-    private fun fillSignal(info: Any, infoCls: Class<*>, rat: Rat, dbm: Int): Boolean {
-        val sigCls = C(rat.sigCls) ?: return false
-        val sig = newInstance(sigCls) ?: return false
+    internal fun buildSignalStrength(rat: Rat, dbm: Int): Any? {
+        val sigCls = C(rat.sigCls) ?: return null
+        val sig = newInstance(sigCls) ?: return null
         val dbmOk = when (rat) {
             Rat.LTE -> setVal(sig, "mRsrp", dbm)
             // ≤Q 主用 ASU 字段；R+ 新增 mRssi（dBm）且 getDbm 优先读它（评审二）。
@@ -411,7 +411,7 @@ object CellInfoFactory {
                     setVal(sig, "mRssi", dbm)
             Rat.NR -> setVal(sig, "mSsRsrp", dbm)
         }
-        if (!dbmOk) return false
+        if (!dbmOk) return null
         // 可选分量：不算必填
         when (rat) {
             Rat.LTE -> {
@@ -426,9 +426,22 @@ object CellInfoFactory {
                 setVal(sig, "mSsSinr", 30)
             }
         }
+        return sig
+    }
+
+    /** 按 radioType 解析制式（覆盖域扩展共享：电话监听钩按服务小区构造强度用） */
+    internal fun ratTypeOf(radioType: String): Rat? = ratOf(radioType)
+
+    /**
+     * 信号强度对象构造 + 挂载。返回 false = 必填失败（强度类不可用/构造失败/
+     * CellInfo 侧字段定位失败/写入失败），create() 弃整条；
+     * 强度对象内部的分量字段（rsrq/sinr/asu 等）为可选，写不上不影响 dbm 主读数。
+     */
+    private fun fillSignal(info: Any, infoCls: Class<*>, rat: Rat, dbm: Int): Boolean {
+        val sig = buildSignalStrength(rat, dbm) ?: return false
         // CellInfo 子类的信号字段名按制式各不相同（mCellSignalStrengthLte 等），
         // 按类型定位（同身份字段的做法），不再按名字找 mSignalStrength
-        val f = signalFieldOf(infoCls, sigCls) ?: return false
+        val f = signalFieldOf(infoCls, sig.javaClass) ?: return false
         return try {
             f.set(info, sig)
             true

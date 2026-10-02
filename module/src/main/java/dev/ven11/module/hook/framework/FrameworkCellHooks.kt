@@ -55,13 +55,60 @@ object FrameworkCellHooks {
             val target = when {
                 m.name == "getAllCellInfo" && m.parameterTypes.all { it == String::class.java } -> "all"
                 m.name == "getCellLocation" && m.parameterTypes.all { it == String::class.java } -> "loc"
+                m.name == "requestCellInfoUpdate" -> "reqcb"
                 else -> null
             } ?: continue
+            if (target == "reqcb") {
+                hookPimCellInfoRequest(module, m)
+                n++
+                continue
+            }
             hookPimMethod(module, m, target)
             n++
         }
         module.log(Log.INFO, "VEN11", "framework cell hooks installed=$n")
         return n
+    }
+
+    /**
+     * PIM.requestCellInfoUpdate（覆盖域扩展 5a）：回调经 binder 回到应用进程
+     * 交付。phone 进程内拿到的是应用侧 ICellInfoCallback 的 **Proxy**——
+     * 经 CallbackHooks 钩 Proxy 具体类的交付方法，改写 List 参数后再由原方法
+     * marshal（我们的 CellInfo 子类均可 Parcelable 序列化，mCellConnectionStatus/
+     * mRegistered 齐备）。
+     */
+    private fun hookPimCellInfoRequest(module: XposedModule, m: Method) {
+        module.hook(m).setId("ven11.fwcell.reqcb/${m.parameterTypes.size}")
+            .intercept(object : XposedInterface.Hooker {
+                override fun intercept(chain: XposedInterface.Chain): Any? {
+                    val registered = chain.proceed()
+                    val uid = Binder.getCallingUid()
+                    val cb = chain.args.firstOrNull { it !is String } ?: return registered
+                    runCatching {
+                        dev.ven11.module.hook.util.CallbackHooks.install(
+                            module, "FW-CELL-CB", cb, null,
+                            methodNames = setOf("onCellInfoChanged", "onCellInfo"),
+                        ) { chain, _ ->
+                            val args = chain.args
+                            val listIdx = args.indexOfFirst { it is List<*> }
+                            if (listIdx < 0) return@install chain.proceed()
+                            val real = args[listIdx] as List<*>
+                            // 系统调用与脱敏视角判断沿用 PIM 语义：真实空表=无权限，透传
+                            if (real.isEmpty()) return@install chain.proceed()
+                            val pkg = dev.ven11.module.hook.framework.UidResolver.pkgOfUid(uid)
+                                ?: return@install chain.proceed()
+                            val eff = PolicyResolver.resolve(pkg, uid)
+                            if (!eff.domainEnabled(PolicyResolver.Domain.CELL)) return@install chain.proceed()
+                            val env = eff.environment ?: return@install chain.proceed()
+                            val out = CellInfoFactory.build(env.cells)
+                            if (out.isEmpty()) return@install chain.proceed()
+                            args[listIdx] = out
+                            chain.proceed(args.toTypedArray())
+                        }
+                    }.onFailure { ProbeLog.log("FW-CELL-CB-FAIL $it") }
+                    return registered
+                }
+            })
     }
 
     private fun hookPimMethod(module: XposedModule, m: Method, target: String) {

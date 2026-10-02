@@ -1,0 +1,27 @@
+{
+  "configVersion": 1,
+  "masterEnabled": true,
+  "excludedPackages": [],
+  "excludedUids": [],
+  "jitter": {"enabled": true, "amplitudeMeters": 8},
+  "sim": {"enabled": false, "slots": []},
+  "environments": [
+    {
+      "id": 1,
+      "lat": 39.9042,
+      "lon": 116.4074,
+      "accuracy": 12.0,
+      "cells": [
+        {"radioType": "lte", "mcc": "460", "mnc": "00", "ci": 12345001, "tac": 22601,
+         "pci": 121, "arfcn": 1650, "registered": true, "signalDbm": -85}
+      ],
+      "wifis": [
+        {"ssid": "Office-5G", "bssid": "02:1a:11:00:00:01", "signalDbm": -55, "frequencyMhz": 5180}
+      ]
+    }
+  ],
+  "policies": [
+    {"environmentId": 1}
+  ],
+  "routes": []
+}

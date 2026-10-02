@@ -72,4 +72,9 @@ object PolicyResolver {
             gateOpen = gateOpen,
         ).also { cache = Cached(key, now, it) }
     }
+
+    /** 快照版本变化时由 SnapshotStore 调用：总开关/排除名单变化不吃 TTL 延迟 */
+    fun invalidate() {
+        cache = null
+    }
 }

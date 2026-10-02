@@ -7,6 +7,7 @@ import android.os.SystemClock
 import android.util.Log
 import dev.ven11.module.ProbeLog
 import dev.ven11.module.ipc.PolicyResolver
+import dev.ven11.module.ipc.SnapshotStore
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import java.lang.reflect.Method
@@ -31,19 +32,23 @@ import java.util.concurrent.atomic.AtomicBoolean
  *    不对原始 tag 切字符串（zh-Hant-TW、-u- 扩展不会被切错）；
  *  - System user.language / user.region 在 apply 时同步 setProperty。
  *
- * 匹配语义（VEN 0.3.0-rc2 教训）：仅 pkg+userId 精确策略；无策略不装钩。
+ * 匹配语义（VEN 0.3.0-rc2 教训）：仅 pkg+userId 精确策略；回落全局环境的
+ * languageTag 不生效。
  * 契约前提：
  *  1) PolicyResolver 的 resolve 结果需暴露 exact（精确命中 "pkg/userId" = true；
- *     回落全局激活环境 = false）——语言域只认 exact 命中，全局环境的 languageTag 不生效；
- *  2) domainEnabled("language") 与 excludedUids/excludedPackages 拦截在 resolve 内部完成
- *     （见基础设施说明）。若未完成，语言域将成为绕过开关/排除名单的唯一入口。
+ *     回落全局激活环境 = false）——语言域只认 exact 命中；
+ *  2) domainEnabled("language") 统一在 [refresh] 内判定（总开关/排除名单/策略级开关）。
  *
  * 作用域与生命周期：
  *  - Locale/LocaleList/SystemProperties 均为 boot 类，钩子进程级（参数 cl 仅为兼容签名）：
- *    同进程多包（sharedUserId/android:process）只装一次，以首个精确命中的包为准，
- *    被跳过的包记日志；
- *  - 热更新：装钩后策略修改/删除 ≤1s 生效（拦截器内节流重读快照，对齐 SnapshotStore 轮询）；
- *    删除后恢复安装前捕获的真实值；新增策略需重启进程（“无策略不装钩”的代价，有意为之）。
+ *    同进程多包（sharedUserId/android:process）只装一次，owner = 首个加载的包，
+ *    时区/语言是进程全局状态，不可按包区分（跳过的包记日志）；
+ *  - 轻量钩子无条件安装（评审二轮补充·高优先级）：装钩与否不再依赖启动时的配置——
+ *    无策略时拦截器全部放行真实值；"是否有伪装、伪装成什么"由 [refresh] 在
+ *    每次被钩调用（≤1s 节流）和快照版本变化回调时重新判定，策略出现/修改/删除
+ *    /域开关/排除名单变化全部热生效，与 SnapshotStore 轮询模型一致，
+ *    不再需要杀进程重启；
+ *  - 删除后恢复安装前捕获的真实值（captureRealState 在装钩时无条件执行）。
  *
  * 已知局限（Java 钩子无法覆盖，文档化）：native 层 __system_property_get 与 ICU4C 默认
  * locale（NDK / Unity 等引擎直读）不受影响；进程启动极早期已应用过的真实配置不重放，
@@ -61,29 +66,10 @@ class ClientLanguageHooks(private val module: XposedModule) {
             return 0
         }
         val uid = Process.myUid()
-
-        val resolved = PolicyResolver.resolve(pkg, uid)
-        // 评审四：总开关/排除名单/策略级域开关统一经 domainEnabled 判定，不再假设
-        // "resolve 内部完成"——Language 域此前是绕过总开关的唯一入口
-        if (!resolved.domainEnabled(PolicyResolver.Domain.LANGUAGE)) {
-            INSTALLED.set(false)
-            ProbeLog.log("LANG-HOOKS n=0 pkg=$pkg uid=$uid (域未启用/总开关关闭/在排除名单)")
-            return 0
-        }
-        val tag = if (resolved.exact) resolved.policy?.languageTag?.trim().orEmpty() else ""
-        val locale = parseLocale(tag)
-        if (locale == null) {
-            // 释放守卫，让同进程后续包仍有机会按自己的策略装钩
-            INSTALLED.set(false)
-            ProbeLog.log("LANG-HOOKS n=0 pkg=$pkg uid=$uid (无精确语言策略或 languageTag 非法: \"$tag\"，不装钩)")
-            return 0
-        }
-
         ownerPkg = pkg
         ownerUid = uid
         prepareULocale(cl)
         captureRealState()
-        applyOverride(locale)
 
         var n = 0
         n += hookLocaleSetters()
@@ -92,8 +78,15 @@ class ClientLanguageHooks(private val module: XposedModule) {
         n += hookResourcesConfig(cl)
         n += hookSystemProperties(cl)
 
-        module.log(Log.INFO, "VEN11", "language hooks installed=$n pkg=$pkg lang=${locale.toLanguageTag()}")
-        ProbeLog.log("LANG-HOOKS n=$n pkg=$pkg lang=${locale.toLanguageTag()}")
+        // 快照版本变化 → 主动驱动一次 refresh，不等下一次被钩调用
+        // （策略从无到有/域开关/排除名单变化在此热生效）
+        SnapshotStore.registerListener("language") { _, _ -> forceRefresh() }
+        // 启动时已有有效策略则立即应用（覆盖"装钩完成前快照刚好更新"的竞态窗口）
+        forceRefresh()
+
+        val lang = overrideLocale?.toLanguageTag() ?: "-"
+        module.log(Log.INFO, "VEN11", "language hooks installed=$n pkg=$pkg lang=$lang")
+        ProbeLog.log("LANG-HOOKS n=$n pkg=$pkg lang=$lang")
         return n
     }
 
@@ -292,6 +285,22 @@ class ClientLanguageHooks(private val module: XposedModule) {
         }
     }
 
+    /**
+     * 快照版本变化回调入口：不走节流（版本变化是确定性信号），restoring 期间跳过。
+     * 策略从无到有 / 域开关 / 排除名单变化在此立即生效，不等下一次被钩调用。
+     */
+    private fun forceRefresh() {
+        if (refreshing || restoring) return
+        refreshing = true
+        try {
+            refresh()
+        } catch (e: Throwable) {
+            ProbeLog.log("LANG-HOOK-FAIL forceRefresh: $e")
+        } finally {
+            refreshing = false
+        }
+    }
+
     private fun refresh(): Locale? {
         val pkg = ownerPkg ?: return null
         val resolved = PolicyResolver.resolve(pkg, ownerUid)
@@ -334,7 +343,7 @@ class ClientLanguageHooks(private val module: XposedModule) {
         private val INSTALLED = AtomicBoolean(false)
         private const val RESOLVE_INTERVAL_MS = 1_000L
 
-        // ---- 进程级状态（boot 类钩子作用于整个进程，以首个精确命中的包为 owner）----
+        // ---- 进程级状态（boot 类钩子作用于整个进程，owner = 首个加载的包）----
         @Volatile private var ownerPkg: String? = null
         @Volatile private var ownerUid: Int = 0
 

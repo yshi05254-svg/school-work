@@ -138,33 +138,43 @@ object LocationFactory {
     }
 
     /**
-     * 清除 mock 标记并读回验证（审查八 #6）："没抛异常"不等于清掉了。API 31+ 走
-     * 公开的 setIsMock(false)/isMock()（API 31 起公开，不再猜私有字段）；旧版本反射
-     * mIsMock 并用 isFromMockProvider 读回。两条路都失败时保留限频诊断——旧版本
-     * 没有可靠清理手段，此时应避免携带 mock 模板，而不是声称清理成功。
+     * 清除 mock 标记并读回验证（审查八 #6）："没抛异常"不等于清掉了。方法名按 ROM
+     * 实测的 dex 实证链尝试（OPLUS Android 16：setMock(Z)，无 setIsMock）；全部
+     * 失败时保留限频诊断——此时应避免携带 mock 模板，而不是声称清理成功。
      * 只改本模块交付的对象，不碰全局 isMock 语义。
      */
     @Suppress("DEPRECATION")
     private fun clearMockFlag(loc: Location) {
-        val cleared = if (Build.VERSION.SDK_INT >= 31) {
+        val cleared = try {
+            // 首选：OPLUS Android 16 实证方法名 setMock(Z)（同步 isMock/isFromMockProvider 双字段）
+            Location::class.java
+                .getDeclaredMethod("setMock", Boolean::class.java)
+                .apply { isAccessible = true }
+                .invoke(loc, false)
+            !loc.isMock
+        } catch (_: Throwable) {
             try {
-                // setIsMock 是隐藏 API（SDK 36 stub 无，审查八编译修正）：反射调用
+                // 次选：AOSP 历史方法名 setIsMock(Z)
                 Location::class.java
                     .getDeclaredMethod("setIsMock", Boolean::class.java)
                     .apply { isAccessible = true }
                     .invoke(loc, false)
                 !loc.isMock
             } catch (_: Throwable) {
-                false
-            }
-        } else {
-            try {
-                Location::class.java.getDeclaredField("mIsMock")
-                    .apply { isAccessible = true }
-                    .setBoolean(loc, false)
-                !loc.isFromMockProvider
-            } catch (_: Throwable) {
-                false
+                try {
+                    // 兜底：直接清字段（OPLUS 16 实测字段名 isMock / isFromMockProvider 并存）
+                    Location::class.java.getDeclaredField("isMock")
+                        .apply { isAccessible = true }
+                        .setBoolean(loc, false)
+                    runCatching {
+                        Location::class.java.getDeclaredField("isFromMockProvider")
+                            .apply { isAccessible = true }
+                            .setBoolean(loc, false)
+                    }
+                    !loc.isMock
+                } catch (_: Throwable) {
+                    false
+                }
             }
         }
         if (!cleared) {

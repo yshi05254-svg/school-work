@@ -58,8 +58,9 @@ object AppMenus {
     val settings = secondaryPage(id = "settings", title = "系统设置") {
         input("server", "服务器地址", hint = "https://api.example.com", type = KeyboardType.Uri, required = true, validator = Validators.url)
         input("interval", "同步间隔（分钟）", hint = "15", type = KeyboardType.Number, validator = Validators.intIn(1..1440), ime = ImeAction.Done)
+        // 评审三轮 #1：配置下发入口（构造快照 → /data/local/tmp/ven11/snapshot.json）
+        button("publish", "发布配置到模块", Icons.Filled.Refresh, subtitle = "需 root；目标进程 ≤1s 热生效")
         button("clear_cache", "清除缓存", Icons.Filled.Delete)
-        button("check_update", "检查更新", Icons.Filled.Refresh)
         button("about", "关于", Icons.Filled.Info)
         submit("保存设置")
     }

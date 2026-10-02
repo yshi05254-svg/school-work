@@ -99,12 +99,14 @@ class ClientConnectivityHooks(private val module: XposedModule) {
                         methodNames = setOf("onCapabilitiesChanged"),
                         baseFallback = cbBase,
                     ) { chain, _ ->
-                        val args = chain.args
-                        val caps = args.getOrNull(1)
+                        // API 102 的 chain.args 返回不可变 List：先复制数组再改写
+                        val newArgs = chain.args.toTypedArray()
+                        val caps = newArgs.getOrNull(1)
                         if (caps != null) {
-                            args[1] = runCatching { spoofCaps(caps, pkg, uid) }.getOrDefault(caps)
+                            newArgs[1] = runCatching { spoofCaps(caps, pkg, uid) }
+                                .getOrNull() ?: caps
                         }
-                        chain.proceed(args.toTypedArray())
+                        chain.proceed(newArgs)
                     }
                 }.onFailure { ProbeLog.log("CONN-CB-FAIL $it") }
                 return registered
@@ -118,6 +120,10 @@ class ClientConnectivityHooks(private val module: XposedModule) {
      * WIFI transport + 可见（未脱敏/已连接）→ 原地改写 TransportInfo 的 WifiInfo
      * 为环境首项（与 getConnectionInfo 同一"首项=当前连接"约定）。
      * 其余情况原样返回（不注入、不造连接状态）。
+     *
+     * 返回值必须是 [NetworkCapabilities] 本身（本方法同时服务 getNetworkCapabilities
+     * 返回值与 onCapabilitiesChanged 参数两条路；WifiInfoSpoofer.spoof 是原地改写，
+     * 返回的 WifiInfo 只用于确认改写发生，不能替代 NC 返回给调用方）。
      */
     private fun spoofCaps(real: Any?, pkg: String, uid: Int): Any? {
         val caps = real as? NetworkCapabilities ?: return real
@@ -131,7 +137,10 @@ class ClientConnectivityHooks(private val module: XposedModule) {
         if (!WifiInfoSpoofer.isConnected(info)) return caps
         val w: VirtualWifi = env.wifis.first()
         hit("conn ssid=${w.ssid}")
-        return WifiInfoSpoofer.spoof(info, w)
+        // 原地改写后必须返回 caps 本身；此前 return spoof(info, w) 返回的是
+        // WifiInfo，调用方按 NetworkCapabilities 接住会 ClassCastException
+        WifiInfoSpoofer.spoof(info, w)
+        return caps
     }
 
     private fun sig(m: Method): String =

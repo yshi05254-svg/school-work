@@ -2,10 +2,12 @@ package dev.ven11.module.hook.framework
 
 import android.os.Binder
 import android.os.Bundle
+import android.os.IInterface
 import android.os.Process
 import android.os.SystemClock
 import android.telephony.CellIdentity
 import android.telephony.CellLocation
+import android.telephony.gsm.GsmCellLocation
 import android.util.Log
 import dev.ven11.module.ProbeLog
 import dev.ven11.module.Ven11Module
@@ -41,6 +43,19 @@ object FrameworkCellHooks {
 
     private val lastLog = ConcurrentHashMap<String, Long>()
     private const val LOG_INTERVAL_MS = 30_000L
+
+    /**
+     * 注册时捕获的调用方身份（回调实例 → (uid, pkg)）。回调经 binder 异步交付时
+     * 已不在应用的事务里（Binder.getCallingUid() 是 phone 进程自身），而
+     * CallbackHooks 按 类#方法 去重、所有注册共享同一拦截器——身份必须按注册
+     * 逐次记录，不能固化进闭包（否则后注册的应用沿用首个调用方的身份）。
+     * LRU 有界防泄漏（应用可反复注册回调）。
+     */
+    private val callbackIdentity =
+        object : LinkedHashMap<Any, Pair<Int, String>>(16, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Any, Pair<Int, String>>): Boolean =
+                size > 32
+        }
 
     fun install(module: XposedModule, cl: ClassLoader): Int {
         var n = 0
@@ -81,29 +96,45 @@ object FrameworkCellHooks {
         module.hook(m).setId("ven11.fwcell.reqcb/${m.parameterTypes.size}")
             .intercept(object : XposedInterface.Hooker {
                 override fun intercept(chain: XposedInterface.Chain): Any? {
-                    val registered = chain.proceed()
+                    // 调用身份必须在 proceed 前取：PIM 方法体内可能 clearCallingIdentity
                     val uid = Binder.getCallingUid()
-                    val cb = chain.args.firstOrNull { it !is String } ?: return registered
+                    val registered = chain.proceed()
+                    // 回调是 AIDL binder 代理（实现 IInterface）。不能按"首个非 String"
+                    // 挑：requestCellInfoUpdate(int subId, String pkg, String featureId,
+                    // ICellInfoCallback cb, ...) 里第一个非 String 参数是 subId（Integer）
+                    val cb = chain.args.firstOrNull { it is IInterface } ?: return registered
+                    synchronized(callbackIdentity) {
+                        callbackIdentity[cb] = uid to (UidResolver.pkgOfUid(uid) ?: "")
+                    }
                     runCatching {
                         dev.ven11.module.hook.util.CallbackHooks.install(
                             module, "FW-CELL-CB", cb, null,
                             methodNames = setOf("onCellInfoChanged", "onCellInfo"),
                         ) { chain, _ ->
+                            // 交付时按回调实例反查注册方身份；查不到（进程重启前旧回调）
+                            // 回落当前 callingUid，再查不到 pkg 则透传
+                            val ident = synchronized(callbackIdentity) {
+                                callbackIdentity[chain.thisObject]
+                            }
+                            val dUid = ident?.first ?: Binder.getCallingUid()
                             val args = chain.args
                             val listIdx = args.indexOfFirst { it is List<*> }
                             if (listIdx < 0) return@install chain.proceed()
                             val real = args[listIdx] as List<*>
                             // 系统调用与脱敏视角判断沿用 PIM 语义：真实空表=无权限，透传
                             if (real.isEmpty()) return@install chain.proceed()
-                            val pkg = dev.ven11.module.hook.framework.UidResolver.pkgOfUid(uid)
+                            val pkg = ident?.second?.takeIf { it.isNotEmpty() }
+                                ?: dev.ven11.module.hook.framework.UidResolver.pkgOfUid(dUid)
                                 ?: return@install chain.proceed()
-                            val eff = PolicyResolver.resolve(pkg, uid)
+                            val eff = PolicyResolver.resolve(pkg, dUid)
                             if (!eff.domainEnabled(PolicyResolver.Domain.CELL)) return@install chain.proceed()
                             val env = eff.environment ?: return@install chain.proceed()
                             val out = CellInfoFactory.build(env.cells)
                             if (out.isEmpty()) return@install chain.proceed()
-                            args[listIdx] = out
-                            chain.proceed(args.toTypedArray())
+                            // API 102 的 chain.args 不可变：复制数组后改写再 proceed
+                            val newArgs = args.toTypedArray()
+                            newArgs[listIdx] = out
+                            chain.proceed(newArgs)
                         }
                     }.onFailure { ProbeLog.log("FW-CELL-CB-FAIL $it") }
                     return registered
@@ -187,15 +218,27 @@ object FrameworkCellHooks {
                 val id = CellInfoFactory.buildIdentity(serving)
                 if (id != null && rt.isAssignableFrom(id.javaClass)) id else real
             }
-            // Android 10：Bundle 形态，替换其中的 CellLocation 值（key 扫描，不硬编码）
+            // Android 10：Bundle 形态。binder 传输的 Bundle 里是 GsmCellLocation
+            // fillInNotifierBundle 写入的 int（"lac"/"cid"/"psc"），不是 CellLocation
+            // 对象——两种形态都处理：含对象键则替换对象，否则按已有 int 键回填
             Bundle::class.java.isAssignableFrom(rt) -> {
                 val b = real as? Bundle ?: return real
-                val key = b.keySet().firstOrNull { b.get(it) is CellLocation } ?: return real
-                // SDK 33+ 的 CellLocation stub 不再声明 Parcelable，运行时仍实现——
-                // 运行时安全转换后走公开 putParcelable；转换失败放行真实值
-                val p = CellInfoFactory.asGsmCellLocation(serving) as? android.os.Parcelable
-                if (p == null) return real
-                b.putParcelable(key, p)
+                val objKey = b.keySet().firstOrNull { b.get(it) is CellLocation }
+                val loc = CellInfoFactory.asGsmCellLocation(serving)
+                if (objKey != null) {
+                    // SDK 33+ 的 CellLocation stub 不再声明 Parcelable，运行时仍实现——
+                    // 运行时安全转换后走公开 putParcelable；转换失败放行真实值
+                    val p = loc as? android.os.Parcelable ?: return real
+                    b.putParcelable(objKey, p)
+                    throttleLog("loc", "FW-CELL-SPOOF bundle-obj")
+                    return b
+                }
+                val gsm = loc as? GsmCellLocation ?: return real
+                var touched = false
+                if (b.containsKey("lac")) { b.putInt("lac", gsm.lac); touched = true }
+                if (b.containsKey("cid")) { b.putInt("cid", gsm.cid); touched = true }
+                if (b.containsKey("psc")) { b.putInt("psc", gsm.psc); touched = true }
+                if (touched) throttleLog("loc", "FW-CELL-SPOOF bundle-int lac/cid/psc")
                 b
             }
             // 更老版本直接返回 CellLocation

@@ -412,21 +412,50 @@ object CellInfoFactory {
             Rat.NR -> setVal(sig, "mSsRsrp", dbm)
         }
         if (!dbmOk) return null
-        // 可选分量：不算必填
+        // 可选分量：不算必填。
+        // rsrq 用合法范围内的值（LTE/NR 的 RSRQ 是负 dB，合法区间 [-20,-3]；此前
+        // 写 15/20 越界，读回校验和按区间判断的应用都会视其为无效）；
+        // LTE 的 asu 按 RSRP 换算（asu = rsrp + 140，0..97 对应 -140..-43 dBm）——
+        // 此前 +44 对一切现实 dbm 都得负值、被钳成 0
         when (rat) {
             Rat.LTE -> {
-                setVal(sig, "mRsrq", 15)
+                setVal(sig, "mRsrq", -10)
                 setVal(sig, "mRssnr", 30)
-                setVal(sig, "mSignalStrength", (dbm + 44).coerceIn(0, 97))
+                setVal(sig, "mSignalStrength", (dbm + 140).coerceIn(0, 97))
             }
             Rat.GSM, Rat.WCDMA, Rat.TDSCDMA ->
                 setVal(sig, "mSignalStrength", ((dbm + 113) / 2).coerceIn(0, 31))
             Rat.NR -> {
-                setVal(sig, "mSsRsrq", 20)
+                setVal(sig, "mSsRsrq", -10)
                 setVal(sig, "mSsSinr", 30)
             }
         }
+        // mLevel 回填（审查五）：T+ 的 CellSignalStrength* 子类显式持有 mLevel 且
+        // getLevel() 直接返回它——反射无参构造出的实例不回填就恒为 0（无信号）；
+        // R- 无此字段、getLevel() 由分量现算，setVal 按字段存在性自然跳过
+        setVal(sig, "mLevel", levelOf(rat, dbm))
         return sig
+    }
+
+    /** dbm → 信号等级（对齐 AOSP getLevel 阈值）；LTE/NR 按 rsrp，GSM/WCDMA/TD 按 asu */
+    private fun levelOf(rat: Rat, dbm: Int): Int = when (rat) {
+        Rat.GSM, Rat.WCDMA, Rat.TDSCDMA -> {
+            val asu = ((dbm + 113) / 2).coerceIn(0, 31)
+            when {
+                asu >= 12 -> 4
+                asu >= 8 -> 3
+                asu >= 5 -> 2
+                asu >= 3 -> 1
+                else -> 0
+            }
+        }
+        else -> when {
+            dbm >= -95 -> 4
+            dbm >= -105 -> 3
+            dbm >= -115 -> 2
+            dbm >= -125 -> 1
+            else -> 0
+        }
     }
 
     /** 按 radioType 解析制式（覆盖域扩展共享：电话监听钩按服务小区构造强度用） */

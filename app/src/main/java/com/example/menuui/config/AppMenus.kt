@@ -58,6 +58,9 @@ object AppMenus {
     val settings = secondaryPage(id = "settings", title = "系统设置") {
         input("server", "服务器地址", hint = "https://api.example.com", type = KeyboardType.Uri, required = true, validator = Validators.url)
         input("interval", "同步间隔（分钟）", hint = "15", type = KeyboardType.Number, validator = Validators.intIn(1..1440), ime = ImeAction.Done)
+        // 目标包名（逗号分隔；留空回落 com.tencent.mm / com.autonavi.minimap）：
+        // 发布的快照按这里列出的包名逐包生成精确策略
+        input("targets", "目标包名", hint = "com.tencent.mm,com.autonavi.minimap", ime = ImeAction.Done)
         // 评审三轮 #1：配置下发入口（构造快照 → /data/local/tmp/ven11/snapshot.json）
         button("publish", "发布配置到模块", Icons.Filled.Refresh, subtitle = "需 root；目标进程 ≤1s 热生效")
         button("clear_cache", "清除缓存", Icons.Filled.Delete)

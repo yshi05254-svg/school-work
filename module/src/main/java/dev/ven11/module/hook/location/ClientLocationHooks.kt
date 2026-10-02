@@ -35,9 +35,13 @@ class ClientLocationHooks(private val module: XposedModule) {
 
     /**
      * orig → wrapper，按对象身份比较；所有读写均在 synchronized(wrappers) 内。
-     * 弱键 + SpoofListener 弱引用 orig（评审四/三轮 #4）：键值互不强引用，无环——
-     * 应用释放 orig（未调 removeUpdates，如监听器随 Activity 销毁）后条目自然失效，
-     * 存活 wrapper 的回调经弱引用取不到 orig 即静默丢弃。
+     * 弱键映射（评审四/三轮 #4）只负责 orig 侧的注册去重；wrapper 对 orig 持
+     * **强引用**（审查五 #6）：系统侧经 binder transport 强引用的是 wrapper，
+     * wrapper 必须同样强引用 orig 才能复现"系统强引用应用 listener"的原始行为——
+     * 弱引用会让 `requestLocationUpdates(..., object : LocationListener {...})`
+     * 这类不另存引用的常见写法在 GC 后静默失去定位更新。映射清理只由
+     * removeUpdates 钩负责：应用弃置 listener 且不注销时，wrapper+orig 的驻留
+     * 与不加钩时系统强引用 orig 的驻留等价，不构成额外泄漏。
      */
     private val wrappers = synchronizedMap(WeakHashMap<LocationListener, SpoofListener>())
 
@@ -190,22 +194,19 @@ class ClientLocationHooks(private val module: XposedModule) {
     /**
      * 应用 listener 的包装器。
      *
-     * 引用关系（评审三轮 #4）：orig 只以 [WeakReference] 持有——此前 orig 强引用 +
-     * WeakHashMap 键的组合形成"值强引用键"的环，弱键永不回收，泄漏依旧。断环后：
-     * 应用侧释放 orig（如监听器随 Activity 销毁且未 removeUpdates）→ orig 可回收 →
-     * 映射条目失效；系统侧仍持有的 wrapper 回调变 no-op（orig 弱引用取不到即丢弃），
-     * 语义等价于"监听器已死"。orig 存活期间（应用正常持有）委托行为不变。
+     * 引用关系（审查五 #6）：orig 由 wrapper **强引用**——不加钩时系统
+     * （LocationManagerService 的 transport）就是强引用应用传入的 listener，
+     * wrapper 必须维持同等强度，否则常见的不持引用写法（匿名 listener）在 GC 后
+     * 会静默丢失全部回调。wrapper 的存活期 = 注册期（系统强引用 wrapper），
+     * 映射条目由 removeUpdates 钩在注销成功后清理；应用弃置 listener 不注销时
+     * 的驻留与不加钩时的系统侧强引用等价。
      */
     private inner class SpoofListener(
-        orig: LocationListener,
+        private val orig: LocationListener,
         private val pkg: String,
         private val uid: Int,
         private val fallbackProvider: String,
     ) : LocationListener, SpoofWrapper {
-
-        private val origRef = java.lang.ref.WeakReference(orig)
-
-        private fun orig(): LocationListener? = origRef.get()
 
         private fun map(location: Location): Location? =
             when (val d = LocationFactory.decide(pkg, uid, location.provider ?: fallbackProvider, location)) {
@@ -215,26 +216,25 @@ class ClientLocationHooks(private val module: XposedModule) {
             }
 
         override fun onLocationChanged(location: Location) {
-            orig()?.let { o -> map(location)?.let { o.onLocationChanged(it) } }
+            map(location)?.let { orig.onLocationChanged(it) }
         }
 
         /** API 31+ 批量回调：转交原对象的批量入口，保留应用自己的批量处理逻辑 */
         override fun onLocationChanged(locations: List<Location>) {
-            val o = orig() ?: return
             val out = locations.mapNotNull { map(it) }
-            if (out.isNotEmpty()) o.onLocationChanged(out)
+            if (out.isNotEmpty()) orig.onLocationChanged(out)
         }
 
-        override fun onProviderEnabled(provider: String) { orig()?.onProviderEnabled(provider) }
+        override fun onProviderEnabled(provider: String) { orig.onProviderEnabled(provider) }
 
-        override fun onProviderDisabled(provider: String) { orig()?.onProviderDisabled(provider) }
+        override fun onProviderDisabled(provider: String) { orig.onProviderDisabled(provider) }
 
-        override fun onFlushComplete(requestCode: Int) { orig()?.onFlushComplete(requestCode) }
+        override fun onFlushComplete(requestCode: Int) { orig.onFlushComplete(requestCode) }
 
         @Deprecated("Deprecated in Java")
         @Suppress("DEPRECATION")
         override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
-            orig()?.onStatusChanged(provider, status, extras)
+            orig.onStatusChanged(provider, status, extras)
         }
     }
 
@@ -347,14 +347,17 @@ class ClientLocationHooks(private val module: XposedModule) {
                         module, "LOC-GNSS", cb, null,
                         methodNames = setOf("onSatelliteStatusChanged"),
                         baseFallback = android.location.GnssStatus.Callback::class.java,
-                    ) { _, _ ->
+                    ) { cbChain, _ ->
+                        // 注意：这里必须用交付回调自己的 chain（cbChain）——外层的 chain
+                        // 是 registerGnssStatusCallback 注册调用，已在上面 proceed 过，
+                        // 二次 proceed 等于重放注册而非交付卫星状态
                         val eff = dev.ven11.module.ipc.PolicyResolver.resolve(pkg, uid)
                         if (eff.domainEnabled(dev.ven11.module.ipc.PolicyResolver.Domain.LOCATION) &&
                             eff.environment != null && eff.policy?.strictMode == true
                         ) {
                             null // 严格模式：抑制卫星状态交付
                         } else {
-                            chain.proceed()
+                            cbChain.proceed()
                         }
                     }
                 }.onFailure { dev.ven11.module.ProbeLog.log("LOC-GNSS-FAIL $it") }

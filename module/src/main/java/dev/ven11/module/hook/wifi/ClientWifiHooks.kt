@@ -8,8 +8,8 @@ import android.net.wifi.SupplicantState
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.net.wifi.WifiSsid
-import android.os.Build
 import android.os.SystemClock
+import android.os.UserHandle
 import android.util.Log
 import dev.ven11.module.ProbeLog
 import dev.ven11.module.ipc.PolicyResolver
@@ -202,19 +202,22 @@ object ScanResultFactory {
 }
 
 /**
- * 定位/近场权限门：模拟系统对 Wi-Fi 数据的权限脱敏语义。
+ * getScanResults 的权限门：模拟系统对该 API 的权限脱敏语义。
+ *
+ * 判据（评审三轮 #2）：getScanResults() 在所有版本上都要求 ACCESS_FINE_LOCATION
+ * 且定位服务开启（Android 13+ 亦然——NEARBY_WIFI_DEVICES 不是它的替代品，官方文档
+ * 明确该 API 仍有独立的定位权限要求并受定位开关影响）。因此本门不看 NEARBY：
+ *  - 判"无权可见"时只放行真实（已被系统脱敏的）结果，绝不注入虚拟数据——保守侧；
+ *  - 应用带 NEARBY_WIFI_DEVICES + neverForLocation 时真机可能在定位关闭下看到结果，
+ *    本门仍判不可见 → 放行真实结果（不注入、不伪造，只是少一个伪装点，安全侧）。
  * 权限名用字符串字面量，避免低编译 SDK 常量缺失。
  */
 object WifiPermissionGate {
     private const val FINE = "android.permission.ACCESS_FINE_LOCATION"
-    private const val NEARBY = "android.permission.NEARBY_WIFI_DEVICES"
 
     /** 应用进程侧：判定目标应用自身是否有权看到扫描列表 */
     fun selfCanSeeScanResults(ctx: Context?): Boolean {
         if (ctx == null) return false
-        val nearby = Build.VERSION.SDK_INT >= 33 &&
-            ctx.checkSelfPermission(NEARBY) == PackageManager.PERMISSION_GRANTED
-        if (nearby) return true
         if (ctx.checkSelfPermission(FINE) != PackageManager.PERMISSION_GRANTED) return false
         return locationEnabled(ctx)
     }
@@ -222,18 +225,31 @@ object WifiPermissionGate {
     /** 系统侧：按 Binder 调用方 (pid, uid) 判定；systemCtx 取不到时按无权限处理（放行真实结果，安全侧） */
     fun canSeeScanResults(pid: Int, uid: Int, systemCtx: Context?): Boolean {
         val ctx = systemCtx ?: return false
-        val nearby = Build.VERSION.SDK_INT >= 33 &&
-            ctx.checkPermission(NEARBY, pid, uid) == PackageManager.PERMISSION_GRANTED
-        if (nearby) return true
         if (ctx.checkPermission(FINE, pid, uid) != PackageManager.PERMISSION_GRANTED) return false
-        return locationEnabled(ctx)
+        return locationEnabledFor(pid, uid, ctx)
     }
 
-    /** 依赖定位权限时还要求定位总开关开启（与真机一致）；查询失败按可见处理 */
+    /** 定位总开关开启才可见（与真机一致）；查询失败按不可见处理（不注入，安全侧） */
     private fun locationEnabled(ctx: Context): Boolean = try {
-        val lm = ctx.getSystemService(LocationManager::class.java) ?: return true
+        val lm = ctx.getSystemService(LocationManager::class.java) ?: return false
         lm.isLocationEnabled
     } catch (_: Throwable) {
-        true
+        false
+    }
+
+    /** 系统侧定位开关按调用方查询；查询失败按不可见处理 */
+    private fun locationEnabledFor(pid: Int, uid: Int, ctx: Context): Boolean = try {
+        val lm = ctx.getSystemService(LocationManager::class.java) ?: return false
+        // isLocationEnabledForUser(UserHandle) 是隐藏 API（公开 SDK 无此方法）：
+        // 反射按调用方所属 user 查询，反射不可用退回本进程视角
+        val handle = UserHandle.getUserHandleForUid(uid)
+        val viaReflection = runCatching {
+            LocationManager::class.java
+                .getMethod("isLocationEnabledForUser", UserHandle::class.java)
+                .invoke(lm, handle) as? Boolean
+        }.getOrNull()
+        viaReflection ?: lm.isLocationEnabled
+    } catch (_: Throwable) {
+        false
     }
 }

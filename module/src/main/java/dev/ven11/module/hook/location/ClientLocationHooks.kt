@@ -35,9 +35,9 @@ class ClientLocationHooks(private val module: XposedModule) {
 
     /**
      * orig → wrapper，按对象身份比较；所有读写均在 synchronized(wrappers) 内。
-     * 弱引用 key（评审四）：应用注册后不调 removeUpdates（监听器随 Activity 销毁）时，
-     * 强引用 IdentityHashMap 会永久持住 listener → 泄漏整个 Activity；orig 被回收后
-     * 由 expireWrappers 清理对应 wrapper。
+     * 弱键 + SpoofListener 弱引用 orig（评审四/三轮 #4）：键值互不强引用，无环——
+     * 应用释放 orig（未调 removeUpdates，如监听器随 Activity 销毁）后条目自然失效，
+     * 存活 wrapper 的回调经弱引用取不到 orig 即静默丢弃。
      */
     private val wrappers = synchronizedMap(WeakHashMap<LocationListener, SpoofListener>())
 
@@ -172,12 +172,25 @@ class ClientLocationHooks(private val module: XposedModule) {
         })
     }
 
+    /**
+     * 应用 listener 的包装器。
+     *
+     * 引用关系（评审三轮 #4）：orig 只以 [WeakReference] 持有——此前 orig 强引用 +
+     * WeakHashMap 键的组合形成"值强引用键"的环，弱键永不回收，泄漏依旧。断环后：
+     * 应用侧释放 orig（如监听器随 Activity 销毁且未 removeUpdates）→ orig 可回收 →
+     * 映射条目失效；系统侧仍持有的 wrapper 回调变 no-op（orig 弱引用取不到即丢弃），
+     * 语义等价于"监听器已死"。orig 存活期间（应用正常持有）委托行为不变。
+     */
     private inner class SpoofListener(
-        private val orig: LocationListener,
+        orig: LocationListener,
         private val pkg: String,
         private val uid: Int,
         private val fallbackProvider: String,
     ) : LocationListener, SpoofWrapper {
+
+        private val origRef = java.lang.ref.WeakReference(orig)
+
+        private fun orig(): LocationListener? = origRef.get()
 
         private fun map(location: Location): Location? =
             when (val d = LocationFactory.decide(pkg, uid, location.provider ?: fallbackProvider, location)) {
@@ -187,25 +200,27 @@ class ClientLocationHooks(private val module: XposedModule) {
             }
 
         override fun onLocationChanged(location: Location) {
-            map(location)?.let { orig.onLocationChanged(it) }
+            orig()?.let { o -> map(location)?.let { o.onLocationChanged(it) } }
         }
 
         /** API 31+ 批量回调：转交原对象的批量入口，保留应用自己的批量处理逻辑 */
         override fun onLocationChanged(locations: List<Location>) {
+            val o = orig() ?: return
             val out = locations.mapNotNull { map(it) }
-            if (out.isNotEmpty()) orig.onLocationChanged(out)
+            if (out.isNotEmpty()) o.onLocationChanged(out)
         }
 
-        override fun onProviderEnabled(provider: String) = orig.onProviderEnabled(provider)
+        override fun onProviderEnabled(provider: String) { orig()?.onProviderEnabled(provider) }
 
-        override fun onProviderDisabled(provider: String) = orig.onProviderDisabled(provider)
+        override fun onProviderDisabled(provider: String) { orig()?.onProviderDisabled(provider) }
 
-        override fun onFlushComplete(requestCode: Int) = orig.onFlushComplete(requestCode)
+        override fun onFlushComplete(requestCode: Int) { orig()?.onFlushComplete(requestCode) }
 
         @Deprecated("Deprecated in Java")
         @Suppress("DEPRECATION")
-        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) =
-            orig.onStatusChanged(provider, status, extras)
+        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
+            orig()?.onStatusChanged(provider, status, extras)
+        }
     }
 
     // ---------------------------------------------------------------- removeUpdates
@@ -214,16 +229,30 @@ class ClientLocationHooks(private val module: XposedModule) {
         module.hook(m).setId("ven11.loc.remove.${sig(m)}").intercept(object : XposedInterface.Hooker {
             override fun intercept(chain: XposedInterface.Chain): Any? {
                 val args = chain.args.toMutableList()
-                var changed = false
+                // 只换参不删映射；系统注销确认成功后才清理（评审三轮 #4：
+                // 先 remove 再 proceed，一旦 proceed 抛 SecurityException，
+                // orig→wrapper 翻译就永久丢失，应用重试注销将失效）
+                val swapped = ArrayList<Pair<LocationListener, SpoofListener>>()
                 for (i in args.indices) {
                     val orig = args[i] as? LocationListener ?: continue
                     if (orig is SpoofWrapper) continue
-                    // 应用传入的是原始 listener；系统侧注册的是 wrapper → 换成 wrapper 再注销
-                    val w = synchronized(wrappers) { wrappers.remove(orig) } ?: continue
+                    val w = synchronized(wrappers) { wrappers[orig] } ?: continue
                     args[i] = w
-                    changed = true
+                    swapped.add(orig to w)
                 }
-                return if (changed) chain.proceed(args.toTypedArray()) else chain.proceed()
+                return try {
+                    if (swapped.isNotEmpty()) chain.proceed(args.toTypedArray())
+                    else chain.proceed()
+                } catch (t: Throwable) {
+                    // 系统注销未确认：恢复映射，保留后续重试注销的翻译能力
+                    // （getOrPut：期间同 orig 若被其他线程重新注册则保留新 wrapper）
+                    synchronized(wrappers) {
+                        swapped.forEach { (o, w) -> wrappers.getOrPut(o) { w } }
+                    }
+                    throw t
+                }.also {
+                    swapped.forEach { (o, _) -> synchronized(wrappers) { wrappers.remove(o) } }
+                }
             }
         })
     }

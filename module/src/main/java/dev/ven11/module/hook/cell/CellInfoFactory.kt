@@ -295,62 +295,93 @@ object CellInfoFactory {
             failOnce("ctor:${rat.name}", "CELL-CTOR-FAIL ${rat.name}")
             return null
         }
-        fillIdentity(id, rat, c)
+        // 评审三轮 #3：关键字段必填——MCC/MNC、小区 id、信号挂载任一失败即弃整条，
+        // 不返回部分初始化的对象（跨 Binder 传输需要完整初始化；宁可少一条也不给
+        // 应用一个能被交叉比对识破/崩溃的半成品）
+        if (!fillIdentity(id, rat, c)) {
+            failOnce("identity:${rat.name}", "CELL-IDENTITY-FAIL ${rat.name}")
+            return null
+        }
         val idField = identityFieldOf(infoCls, idCls)
         if (idField == null || runCatching { idField.set(info, id) }.isFailure) {
             failOnce("idfield:${rat.name}", "CELL-ID-FIELD-FAIL ${rat.name}")
             return null
         }
-        fillInfoState(info, c.registered)
-        fillSignal(info, infoCls, rat, c.signalDbm)
-        return info as? CellInfo
+        fillInfoState(info, c.registered) // 状态字段全部可选：缺失不影响身份正确性
+        if (!fillSignal(info, infoCls, rat, c.signalDbm)) {
+            failOnce("signal:${rat.name}", "CELL-SIGNAL-MISS ${rat.name}")
+            return null
+        }
+        // 读回校验：MCC 可读时必须与配置一致（写失败静默丢字段的最后防线）
+        if (!verifyIdentity(id, c)) {
+            failOnce("verify:${rat.name}", "CELL-VERIFY-FAIL ${rat.name}")
+            return null
+        }
+        return info as CellInfo
     }
 
-    private fun fillIdentity(id: Any, rat: Rat, c: VirtualCell) {
-        // 评审二：API 28+ 的 MCC/MNC 载体是 CellIdentity 基类的 mMccStr/mMncStr（String），
-        // mMcC/mMnc int 字段只在 ≤27（28 上为过渡共存）存在。两侧都写：
-        // setVal 按字段存在性/类型降级，缺失侧自然跳过，不再有 setVal 静默失败导致
-        // MCC/MNC 为空的路径。
-        setVal(id, "mMccStr", mccOf(c))
-        setVal(id, "mMncStr", mncOf(c))
-        setVal(id, "mMcc", mccOf(c))   // ≤27 int 字段（String→Int 降级在 setVal 内）
-        setVal(id, "mMnc", mncOf(c))
+    /**
+     * 身份字段回填。返回 false = 必填项失败（MCC/MNC 任一、按制式的小区 id）：
+     * MCC/MNC 在 28+ 走基类 String 字段、≤27 走子类 int 字段，任一侧写上即可；
+     * mAlphaLong/mAlphaShort/mAdditionalPlmns/mBands/pci/tac/arfcn 为可选——
+     * bands 与 additionalPlmns 只需非空引用（跨 Binder writeToParcel 防线，审查 11），
+     * 写不上仅记一次日志。
+     */
+    private fun fillIdentity(id: Any, rat: Rat, c: VirtualCell): Boolean {
+        val mccOk = setVal(id, "mMccStr", mccOf(c)) || setVal(id, "mMcc", mccOf(c))
+        val mncOk = setVal(id, "mMncStr", mncOf(c)) || setVal(id, "mMnc", mncOf(c))
+        if (!mccOk || !mncOk) return false
         setVal(id, "mAlphaLong", "")
         setVal(id, "mAlphaShort", "")
-        // 30+ 字段：保持非空引用，跨 Binder writeToParcel 才不会 NPE（审查 11）
-        setVal(id, "mAdditionalPlmns", LinkedHashSet<String>())
-        setVal(id, "mBands", IntArray(0))
+        if (!setVal(id, "mAdditionalPlmns", LinkedHashSet<String>()) ||
+            !setVal(id, "mBands", IntArray(0))
+        ) {
+            failOnce("optsets:${rat.name}", "CELL-OPT-COLLECTION-MISS ${rat.name}")
+        }
+        val cellIdOk = when (rat) {
+            Rat.LTE -> setVal(id, "mCi", c.ci.toInt())
+            Rat.GSM -> setVal(id, "mLac", c.lac) && setVal(id, "mCid", c.ci.toInt())
+            Rat.WCDMA -> setVal(id, "mLac", c.lac) && setVal(id, "mCid", c.ci.toInt())
+            Rat.TDSCDMA -> setVal(id, "mLac", c.lac) && setVal(id, "mCid", c.ci.toInt())
+            Rat.NR -> setVal(id, "mNci", c.ci) // 36 位 NCI，long 不截断（审查 8）
+        }
+        if (!cellIdOk) return false
+        // 可选制式参数：pci/tac/arfcn/psc/cpid，写不上跳过（读回不影响 getDbm/PLMN 主路径）
         when (rat) {
             Rat.LTE -> {
-                setVal(id, "mCi", c.ci.toInt())
                 setVal(id, "mPci", c.pci)
                 setVal(id, "mTac", c.tac)
                 setVal(id, "mEarfcn", c.arfcn)
             }
-            Rat.GSM -> {
-                setVal(id, "mLac", c.lac)
-                setVal(id, "mCid", c.ci.toInt())
-                setVal(id, "mArfcn", c.arfcn)
-            }
+            Rat.GSM -> setVal(id, "mArfcn", c.arfcn)
             Rat.WCDMA -> {
-                setVal(id, "mLac", c.lac)
-                setVal(id, "mCid", c.ci.toInt())
                 setVal(id, "mPsc", c.psc)
                 setVal(id, "mUarfcn", c.arfcn)
             }
             Rat.TDSCDMA -> {
-                setVal(id, "mLac", c.lac)
-                setVal(id, "mCid", c.ci.toInt())
                 setVal(id, "mCpid", c.cpid)
                 setVal(id, "mUarfcn", c.arfcn)
             }
             Rat.NR -> {
-                setVal(id, "mNci", c.ci) // 36 位 NCI，long 不截断（审查 8）
                 setVal(id, "mPci", c.pci)
                 setVal(id, "mTac", c.tac)
                 setVal(id, "mNrArfcn", c.arfcn)
             }
         }
+        return true
+    }
+
+    /** 构造后读回：MCC 任意载体可读时必须与配置一致（返回 false = 写入静默丢失） */
+    private fun verifyIdentity(id: Any, c: VirtualCell): Boolean = try {
+        val mccStr = fieldOf(id.javaClass, "mMccStr")?.get(id) as? String
+        if (mccStr != null) {
+            mccStr == mccOf(c)
+        } else {
+            val mccInt = fieldOf(id.javaClass, "mMcc")?.getInt(id)
+            mccInt == null || mccInt.toString() == mccOf(c)
+        }
+    } catch (_: Throwable) {
+        false
     }
 
     private fun fillInfoState(info: Any, registered: Boolean) {
@@ -363,38 +394,46 @@ object CellInfoFactory {
         setVal(info, "mRegistered", registered)
     }
 
-    private fun fillSignal(info: Any, infoCls: Class<*>, rat: Rat, dbm: Int) {
-        val sigCls = C(rat.sigCls) ?: return
-        val sig = newInstance(sigCls) ?: return
+    /**
+     * 信号强度对象构造 + 挂载。返回 false = 必填失败（强度类不可用/构造失败/
+     * CellInfo 侧字段定位失败/写入失败），create() 弃整条；
+     * 强度对象内部的分量字段（rsrq/sinr/asu 等）为可选，写不上不影响 dbm 主读数。
+     */
+    private fun fillSignal(info: Any, infoCls: Class<*>, rat: Rat, dbm: Int): Boolean {
+        val sigCls = C(rat.sigCls) ?: return false
+        val sig = newInstance(sigCls) ?: return false
+        val dbmOk = when (rat) {
+            Rat.LTE -> setVal(sig, "mRsrp", dbm)
+            // ≤Q 主用 ASU 字段；R+ 新增 mRssi（dBm）且 getDbm 优先读它（评审二）。
+            // 两个都写：字段不存在的那侧由 setVal 跳过，至少一侧必须写上
+            Rat.GSM, Rat.WCDMA, Rat.TDSCDMA ->
+                setVal(sig, "mSignalStrength", ((dbm + 113) / 2).coerceIn(0, 31)) ||
+                    setVal(sig, "mRssi", dbm)
+            Rat.NR -> setVal(sig, "mSsRsrp", dbm)
+        }
+        if (!dbmOk) return false
+        // 可选分量：不算必填
         when (rat) {
             Rat.LTE -> {
-                setVal(sig, "mRsrp", dbm)
                 setVal(sig, "mRsrq", 15)
                 setVal(sig, "mRssnr", 30)
                 setVal(sig, "mSignalStrength", (dbm + 44).coerceIn(0, 97))
             }
-            Rat.GSM, Rat.WCDMA, Rat.TDSCDMA -> {
-                // ≤Q 主用 ASU 字段；R+ 新增 mRssi（dBm）且 getDbm 优先读它（评审二）。
-                // 两个都写：字段不存在的那侧由 setVal 跳过
+            Rat.GSM, Rat.WCDMA, Rat.TDSCDMA ->
                 setVal(sig, "mSignalStrength", ((dbm + 113) / 2).coerceIn(0, 31))
-                setVal(sig, "mRssi", dbm)
-            }
             Rat.NR -> {
-                setVal(sig, "mSsRsrp", dbm)
                 setVal(sig, "mSsRsrq", 20)
                 setVal(sig, "mSsSinr", 30)
             }
         }
-        // 评审二：CellInfo 子类的信号字段名按制式各不相同（mCellSignalStrengthLte 等），
+        // CellInfo 子类的信号字段名按制式各不相同（mCellSignalStrengthLte 等），
         // 按类型定位（同身份字段的做法），不再按名字找 mSignalStrength
-        val f = signalFieldOf(infoCls, sigCls) ?: run {
-            failOnce("sigfield:${rat.name}", "CELL-SIG-FIELD-MISS ${rat.name}")
-            return
-        }
-        try {
+        val f = signalFieldOf(infoCls, sigCls) ?: return false
+        return try {
             f.set(info, sig)
-        } catch (t: Throwable) {
-            failOnce("sig:${t.javaClass.name}", "CELL-SIG-FAIL rat=${rat.name} err=${t.javaClass.simpleName}")
+            true
+        } catch (_: Throwable) {
+            false
         }
     }
 

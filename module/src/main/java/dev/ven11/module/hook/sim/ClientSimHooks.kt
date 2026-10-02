@@ -217,17 +217,19 @@ class ClientSimHooks(private val module: XposedModule) {
         val arg = chain.args.firstOrNull() as? Int
         val infos = cachedInfos(sim)
         return when (target) {
-            // ---- 权限类出口（评审二）：gated 先 proceed 复现权限语义，
-            // ---- 无 READ_PHONE_STATE 的脱敏视角（null/空结果）原样返回，不注入虚拟数据
-            "list" -> gated(chain, rt) { ArrayList(infos.map { it.second }) }
-            "available" -> gated(chain, rt) {
+            // ---- 权限类出口（评审二/三轮 #6）：gated 先 proceed 复现权限语义；
+            // ---- 注入判据是调用方自身的 READ_PHONE_STATE（见 gated 注释），
+            // ---- 不再以"真实结果是否为空"推断——无实体 SIM 的真机上也能注入虚拟 SIM
+            "list" -> gated(chain, rt, canReadPhoneState()) { ArrayList(infos.map { it.second }) }
+            "available" -> gated(chain, rt, canReadPhoneState()) {
                 ArrayList(sim.slots.filter { !it.active }.mapNotNull { buildSubscriptionInfo(it) })
             }
-            "count" -> gated(chain, rt) { infos.size }
-            "ids" -> gated(chain, rt) { infos.map { it.first.subId }.toIntArray() }
-            "bySubId" -> gated(chain, rt) { infos.firstOrNull { it.first.subId == arg }?.second }  // 参数语义 = subId（#12），查无匹配返回 null
-            "bySlot" -> gated(chain, rt) { infos.firstOrNull { it.first.slotIndex == arg }?.second }
-            "phoneOfSub" -> gated(chain, rt) {
+            "count" -> gated(chain, rt, canReadPhoneState()) { infos.size }
+            "ids" -> gated(chain, rt, canReadPhoneState()) { infos.map { it.first.subId }.toIntArray() }
+            "bySubId" -> gated(chain, rt, canReadPhoneState()) { infos.firstOrNull { it.first.subId == arg }?.second }  // 参数语义 = subId（#12），查无匹配返回 null
+            "bySlot" -> gated(chain, rt, canReadPhoneState()) { infos.firstOrNull { it.first.slotIndex == arg }?.second }
+            // getPhoneNumber 系列：READ_PHONE_NUMBERS 独立授权即可（API 33+）
+            "phoneOfSub" -> gated(chain, rt, canReadPhoneNumbers()) {
                 infos.firstOrNull { it.first.subId == arg }?.first?.phoneNumber?.ifEmpty { null }
             }
             // ---- 非权限出口：静态工具 / 计数上限，直接替换
@@ -515,30 +517,66 @@ class ClientSimHooks(private val module: XposedModule) {
     }
 
     /**
-     * SubscriptionManager 权限类出口（评审二）：先 proceed 复现 Android 权限语义。
-     *  - SecurityException 原样传播；原方法自身异常回落 Origin
-     *  - 原结果为 null / 空（无 READ_PHONE_STATE 时系统的脱敏视角）→ 原样返回，
-     *    不注入虚拟数据——否则无权限应用也能读到完整订阅列表（含号码），
-     *    与真机行为矛盾且极易被检测
-     *  - 有可见数据才替换为虚拟值；原方法至多执行一次（#2）
+     * SubscriptionManager 权限类出口（评审二/三轮 #6）：先 proceed 复现 Android 权限语义，
+     * 注入与否按调用方自身权限判定，而不是按真实结果是否为空——空结果既可能是
+     * "无权限被脱敏"，也可能是"真机没有实体 SIM"，二者不可区分；按权限判定后：
+     *  - 有权限：无论真实结果是否为空都注入虚拟值 → 无实体 SIM 的设备也能模拟；
+     *  - 无权限：原样返回真实结果（系统脱敏视角，通常为 null/空）→ 与真机行为一致，
+     *    不会让无权限应用读到完整订阅列表（含号码）。
+     * 异常路径（评审三轮 #6）：SecurityException 原样传播；其他异常视为"原方法已执行"，
+     * 直接返回中性值/虚拟值，绝不返回 Origin——dispatch 对 Origin 会再次 proceed，
+     * 造成原方法执行两次。
      */
-    private inline fun gated(chain: XposedInterface.Chain, rt: Class<*>, virtual: () -> Any?): Decided {
+    private inline fun gated(
+        chain: XposedInterface.Chain,
+        rt: Class<*>,
+        allowed: Boolean,
+        virtual: () -> Any?,
+    ): Decided {
         val origin = try {
             chain.proceed()
         } catch (se: SecurityException) {
             return Decided.Rethrow(se)
         } catch (_: Throwable) {
-            return Decided.Origin
+            // 原方法自身异常（非权限类）：已执行过一次，不重放异常、不二次 proceed
+            return if (allowed) Decided.Value(spoof(rt, virtual))
+            else Decided.Value(neutralOf(rt))
         }
-        val visible = when (origin) {
-            null -> false
-            is List<*> -> origin.isNotEmpty()
-            is IntArray -> origin.isNotEmpty()
-            is CharSequence -> origin.isNotEmpty()
-            is Int -> origin != 0            // count：0 = 无卡/无权限视角
-            else -> true
-        }
-        return if (!visible) Decided.Value(origin) else Decided.Value(spoof(rt, virtual))
+        return if (allowed) Decided.Value(spoof(rt, virtual)) else Decided.Value(origin)
+    }
+
+    /** 返回类型中性值：异常兜底时替换原方法结果，不返回类型不符的 null */
+    private fun neutralOf(rt: Class<*>): Any? = when {
+        rt == JAVA_INT -> 0
+        rt == JAVA_BOOLEAN -> false
+        else -> null
+    }
+
+    private val READ_PHONE_STATE = "android.permission.READ_PHONE_STATE"
+    private val READ_PHONE_NUMBERS = "android.permission.READ_PHONE_NUMBERS"
+
+    /**
+     * 调用方自身是否持有 READ_PHONE_STATE（客户端钩在应用进程内，自查即可）。
+     * Context 取不到（Application 未创建等）按无权限处理：透传真实结果，安全侧。
+     */
+    private fun canReadPhoneState(): Boolean = selfGranted(READ_PHONE_STATE)
+
+    /** getPhoneNumber 系列独立权限：READ_PHONE_NUMBERS 或 READ_PHONE_STATE 任一 */
+    private fun canReadPhoneNumbers(): Boolean =
+        selfGranted(READ_PHONE_NUMBERS) || selfGranted(READ_PHONE_STATE)
+
+    private fun selfGranted(permission: String): Boolean = try {
+        appContext()?.checkSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    } catch (_: Throwable) {
+        false
+    }
+
+    /** hook 进程内拿应用 Context（反射 ActivityThread.currentApplication） */
+    private fun appContext(): android.content.Context? = try {
+        val at = Class.forName("android.app.ActivityThread")
+        at.getMethod("currentApplication").invoke(null) as? android.content.Context
+    } catch (_: Throwable) {
+        null
     }
 
     /* ============ per-快照缓存（#15） ============ */

@@ -14,27 +14,38 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * 快照仓库（hook 进程侧）：向所有钩提供不可变快照，热路径只读内存。
  *
- * 通道（审查八 #1）：
- *  - 框架通道（优先）：模块 APK 的 [ConfigContentProvider]——binder 读取不受
- *    /data/local/tmp 的 SELinux 限制，普通应用 / system_server / phone 读到同一版本；
- *    载荷整体单文件存放，先做版本轻查询，版本未变不搬运载荷；
- *  - 文件通道（兜底）：管理端 su 落盘 /data/local/tmp（app 进程多数可读，
- *    system_server/phone 常被 SELinux 挡），保留用于无 provider 权限的降级场景。
+ * 读取机制（P1/P2 修复：system_server 双通道全失败 + 失败原因不可分）：
+ *  三通道按序，各通道独立票据与故障原因，任何一条路走通即拿到配置——
+ *  不同 SELinux 域的进程（普通应用 / system_server / phone）天然落到各自可读的通道：
+ *
+ *  1. provider 通道（首选，发布过后生效）：模块 APK 的 [ConfigContentProvider]，
+ *     binder 读取不受目录 SELinux 限制；故障三态记录原因（ctx-null / query 异常类），
+ *     不再整体吞成 null；
+ *  2. 文件通道 · /data/local/tmp/ven11/snapshot.json：普通应用可读
+ *     （untrusted_app 域实测），system_server 被 SELinux 挡（实测 EACCES）；
+ *  3. 文件通道 · /data/system/ven11/snapshot.json：system_server 可读
+ *     （本域私有目录，DAC 属主 system），由发布脚本以 root 落盘——
+ *     这就是 P1 的解法：同一份快照落两个路径，各进程按域取所需。
  *
  * 调度（审查八 #1/#2）：
  *  - current() 只做节流判定并把轮询丢到单线程后台执行器：钩的热路径不发生任何
- *    binder/文件 IO 与 JSON 解析，解析与校验在后台完成后整体替换引用；
- *  - 各来源独立"成功已处理"票据：读取/解析/校验全部成功才更新票据，失败绝不更新
- *    ——文件戳没变但上次解析失败时仍会重试（修复"失败被缓存"无法恢复的问题）；
- *  - 失败按指数退避限频重试（3s→30s）、失败日志按原因限频；恢复成功单独记一次
- *    RECOVERED 事件；
- *  - "无配置 / masterEnabled 关闭"是合法状态（载荷为空或解析为合法 JSON），
- *    与解析失败（parseOrNull 返回 null）分开处理；
- *  - 快照替换与 PolicyResolver 失效一致；监听通知在仓库锁外执行。
+ *    binder/文件 IO 与 JSON 解析；
+ *  - 各来源独立"成功已处理"票据：读取/解析/校验全部成功才更新票据，失败绝不更新；
+ *  - 失败按指数退避限频重试（3s→30s）、失败日志按原因限频且**原因分通道**
+ *    （P2：provider:<cause> 与 file:<cause> 分列，日志直接指出根因）；
+ *  - "无配置 / masterEnabled 关闭"是合法状态，与解析失败分开处理；
+ *  - 快照替换与 PolicyResolver 失效一致；监听通知在仓库锁外执行；
+ *  - SNAP 事件带 via=<通道>，验收时可直接判定各进程实际走了哪条路。
  */
 object SnapshotStore {
 
-    /** 旧文件通道（管理端 su 落盘的兜底路径；与 app 侧 SnapshotPublisher 保持一致） */
+    /** 文件通道路径（按序尝试；发布侧 scripts/publish-snapshot.sh 双路径同内容落盘） */
+    val SNAPSHOT_PATHS = listOf(
+        "/data/local/tmp/ven11/snapshot.json",   // 普通应用域可读
+        "/data/system/ven11/snapshot.json",      // system_server 域可读（P1 解法）
+    )
+
+    /** 旧单路径常量保留引用兼容（app 侧 SnapshotPublisher 注释指向） */
     const val SNAPSHOT_PATH = "/data/local/tmp/ven11/snapshot.json"
 
     private const val POLL_INTERVAL_MS = 1_000L
@@ -56,13 +67,21 @@ object SnapshotStore {
     private val pollPending = AtomicBoolean(false)
 
     // ---- 各来源成功票据（失败绝不更新） ----
-    private var providerVer: Long = -1L                       // provider 上次成功解析的版本
-    private var fileStamp: Pair<Long, Long> = -1L to -1L      // 文件上次成功解析的 (mtime, size)
+    private var providerVer: Long = -1L                          // provider 上次成功解析的版本
+    private val fileStamps = ConcurrentHashMap<String, Pair<Long, Long>>() // path → (mtime, size)
 
     // ---- 失败状态与退避 ----
     private var lastFailAtMs: Long = 0L
     private var retryDelayMs: Long = RETRY_MIN_MS
-    private var lastFailReason: String? = null
+
+    // ---- 通道故障限频记录（P2：分通道、可区分根因） ----
+    private val faultSeen = ConcurrentHashMap<String, Unit>()
+
+    private fun faultOnce(cause: String) {
+        if (faultSeen.putIfAbsent(cause, Unit) == null) {
+            ProbeLog.log("SNAP-FAULT $cause")
+        }
+    }
 
     fun current(): Snapshot {
         val now = SystemClock.elapsedRealtime()
@@ -91,26 +110,38 @@ object SnapshotStore {
         val now = lastPollAtMs
         if (lastFailAtMs != 0L && now - lastFailAtMs < retryDelayMs) return emptyList()
 
-        val read = readProvider()
-        if (read != null && read.first > 0L) {
-            // 框架通道健康且发布过配置：以它为准（payload=null 亦可能是"已清空"的合法状态）
-            val (ver, payload) = read
-            if (payload == null && ver == providerVer) return emptyList()   // 已处理版本
-            return consume(ver.toString(), payload) { providerVer = ver }
+        when (val pr = readProvider()) {
+            is ProviderRead.Ok -> {
+                // 框架通道健康且发布过配置：以它为准（payload=null 亦可能是"已清空"的合法状态）
+                if (pr.payload == null && pr.ver == providerVer) return emptyList()   // 已处理版本
+                return consume(pr.ver.toString(), pr.payload, via = "provider") { providerVer = pr.ver }
+            }
+            is ProviderRead.Unpublished -> {
+                // 管理端从未发布过（合法状态，非故障）：走文件通道
+            }
+            is ProviderRead.Fault -> {
+                // 通道故障：记原因（分通道，P2），文件通道兜底
+                faultOnce("provider:${pr.cause}")
+            }
         }
-        // read == null（通道故障）或 ver<=0（框架通道从未发布）→ 文件兜底通道接管。
-        // 文件通道的失败也要记录（审查八 #2：失败不可被当作"已处理"）
+
+        // 文件通道（多路径，按序取第一个有新内容的）
         val fr = readFile()
         return when (fr) {
             is FileRead.Failed -> {
-                if (read == null) recordFailure("provider+file read failed")
+                recordFailure("all-channels (provider=${providerState()}, file:${fr.causes.joinToString("|")})")
                 emptyList()
             }
             is FileRead.Unchanged -> emptyList()
-            is FileRead.Content -> consume(fr.stamp.toString(), fr.text) {
-                fileStamp = fr.stamp
+            is FileRead.Content -> consume(fr.stamp.toString(), fr.text, via = "file:${fr.tag}") {
+                fileStamps[fr.path] = fr.stamp
             }
         }
+    }
+
+    private fun providerState(): String = when (providerVer) {
+        -1L -> "unpublished"
+        else -> "ver=$providerVer"
     }
 
     /**
@@ -120,22 +151,22 @@ object SnapshotStore {
     private fun consume(
         versionKey: String,
         payload: String?,
+        via: String,
         markProcessed: () -> Unit,
     ): List<Pair<Snapshot, Snapshot>> {
         val effPayload = payload?.takeIf { it.isNotBlank() }
         val next = effPayload?.let { SnapshotParser.parseOrNull(it) }
         if (effPayload != null && next == null) {
-            recordFailure("parse failed ($versionKey)")
+            recordFailure("parse failed ($versionKey via=$via)")
             return emptyList()
         }
         markProcessed()
         if (lastFailAtMs != 0L) {
-            // 从失败中恢复：单独记一次事件（审查八 #2 验收：不改文件内容/时间戳也能恢复）
-            ProbeLog.log("SNAP-RECOVERED $versionKey")
+            // 从失败中恢复：单独记一次事件（审查八 #2 验收）
+            ProbeLog.log("SNAP-RECOVERED $versionKey via=$via")
         }
         lastFailAtMs = 0L
         retryDelayMs = RETRY_MIN_MS
-        lastFailReason = null
         if (next === current || (next != null && next.configVersion == current.configVersion)) {
             // 版本未变（含 EMPTY）：维持旧实例，保证各域缓存票据稳定
             return emptyList()
@@ -143,7 +174,7 @@ object SnapshotStore {
         val old = current
         current = next ?: Snapshot.EMPTY
         ProbeLog.log(
-            "SNAP version ${old.configVersion} -> ${current.configVersion} " +
+            "SNAP version ${old.configVersion} -> ${current.configVersion} via=$via " +
                 "(env=${current.environments.size} policies=${current.policies.size} " +
                 "simSlots=${current.sim.slots.size} routes=${current.routes.size})"
         )
@@ -155,53 +186,109 @@ object SnapshotStore {
         val now = SystemClock.elapsedRealtime()
         lastFailAtMs = now
         retryDelayMs = (retryDelayMs * 2).coerceAtMost(RETRY_MAX_MS)
-        if (reason != lastFailReason) {
-            lastFailReason = reason
-            ProbeLog.log("SNAP-FAIL $reason（${retryDelayMs / 1000}s 后重试）")
-        }
+        faultOnce("FAIL $reason（${retryDelayMs / 1000}s 后重试）")
     }
 
-    // ---------------------------------------------------------------- 框架通道
+    // ---------------------------------------------------------------- provider 通道
+
+    private sealed interface ProviderRead {
+        class Ok(val ver: Long, val payload: String?) : ProviderRead
+        object Unpublished : ProviderRead
+        class Fault(val cause: String) : ProviderRead
+    }
 
     /**
-     * provider 轻查询 + 载荷读取。返回 null = 通道故障（记失败并回落文件通道）；
-     * (ver, null) = 无载荷或已处理版本——调用方再按 ver == providerVer 细分。
+     * provider 轻查询 + 载荷读取。三态：
+     *  - [ProviderRead.Ok]：发布过（ver>0）；payload=null 表示"该版本已处理"或"已清空"
+     *  - [ProviderRead.Unpublished]：从未发布（合法，走文件通道）
+     *  - [ProviderRead.Fault]：通道故障，cause 区分 ctx-null / query 异常类（P2）
      */
-    private fun readProvider(): Pair<Long, String?>? {
-        val ctx = UidResolver.anyContext() ?: return null
+    private fun readProvider(): ProviderRead {
+        val ctx = UidResolver.anyContext() ?: return ProviderRead.Fault("ctx-null")
         return try {
             val cr = ctx.contentResolver
             val ver = cr.query(
                 ConfigContentProvider.payloadUri(),
                 arrayOf(ConfigContentProvider.COL_VERSION), null, null, null,
-            )?.use { if (it.moveToFirst()) it.getLong(0) else -1L } ?: return null
-            if (ver <= 0L) return -1L to null            // 尚未发布过任何配置
-            if (ver == providerVer) return ver to null   // 已处理版本（轻查询不搬载荷）
+            )?.use { if (it.moveToFirst()) it.getLong(0) else -1L }
+                ?: return ProviderRead.Fault("version-cursor-null")
+            if (ver <= 0L) return ProviderRead.Unpublished
+            if (ver == providerVer) return ProviderRead.Ok(ver, null)   // 已处理版本（轻查询不搬载荷）
             val payload = cr.query(
                 ConfigContentProvider.payloadUri(),
                 arrayOf(ConfigContentProvider.COL_PAYLOAD), null, null, null,
-            )?.use { if (it.moveToFirst()) it.getString(0) else null } ?: return null
-            ver to payload
-        } catch (_: Throwable) {
-            null
+            )?.use { if (it.moveToFirst()) it.getString(0) else null }
+                ?: return ProviderRead.Fault("payload-cursor-null")
+            ProviderRead.Ok(ver, payload)
+        } catch (t: Throwable) {
+            ProviderRead.Fault(t.javaClass.simpleName)
         }
     }
 
-    // ---------------------------------------------------------------- 文件通道（兜底）
+    // ---------------------------------------------------------------- 文件通道（多路径）
 
     private sealed interface FileRead {
         object Unchanged : FileRead
-        object Failed : FileRead
-        class Content(val stamp: Pair<Long, Long>, val text: String) : FileRead
+        class Failed(val causes: List<String>) : FileRead
+        class Content(val path: String, val tag: String, val stamp: Pair<Long, Long>, val text: String) : FileRead
     }
 
+    /**
+     * 逐路径尝试（[SNAPSHOT_PATHS] 按序），语义（P1/P2 修正）：
+     *  - Content：该路径有新内容 → 立即返回（无论其它路径状态）；
+     *  - Unchanged：某路径已有成功票据且无新内容 → 该进程配置源健康，正常态
+     *    （此前把"后续路径 missing"误判为 Failed，导致成功加载后仍刷 FAIL+退避）；
+     *  - 全部路径 Missing（域不可达，如 system_server 对 /data/local/tmp）→ 合法
+     *    空态：faultOnce 留诊断、不进退避（文件随时可能被发布脚本补上，1s 轮询可发现）；
+     *  - 存在真实 IO Error → Failed(causes)（进退避）。
+     */
     private fun readFile(): FileRead {
-        val f = try { File(SNAPSHOT_PATH) } catch (_: Throwable) { return FileRead.Failed }
-        if (!f.isFile || !f.canRead()) return FileRead.Failed
-        val stamp = runCatching { f.lastModified() to f.length() }.getOrNull() ?: return FileRead.Failed
-        if (stamp == fileStamp) return FileRead.Unchanged   // 票据只在成功后写入：失败重试不受阻
-        val text = try { f.readText() } catch (_: Throwable) { return FileRead.Failed }
-        return FileRead.Content(stamp, text)
+        val causes = ArrayList<String>(SNAPSHOT_PATHS.size)
+        for (path in SNAPSHOT_PATHS) {
+            when (val r = readFileOne(path)) {
+                is OneRead.Content -> return FileRead.Content(path, r.tag, r.stamp, r.text)
+                is OneRead.Unchanged -> return FileRead.Unchanged
+                is OneRead.Missing -> causes.add("missing:${r.tag}")
+                is OneRead.Error -> causes.add("error:${r.cause}:${r.tag}")
+            }
+        }
+        if (causes.none { it.startsWith("error") }) {
+            // 全部 Missing：域限制而非故障（P2：诊断留痕但不判失败）
+            causes.forEach { faultOnce("file:$it") }
+            return FileRead.Unchanged
+        }
+        return FileRead.Failed(causes)
+    }
+
+    private sealed interface OneRead {
+        object Unchanged : OneRead
+        class Missing(val cause: String, val tag: String) : OneRead
+        class Error(val cause: String, val tag: String) : OneRead
+        class Content(val tag: String, val stamp: Pair<Long, Long>, val text: String) : OneRead
+    }
+
+    private fun readFileOne(path: String): OneRead {
+        val tag = when {
+            path.startsWith("/data/system") -> "system"
+            path.startsWith("/data/local/tmp") -> "local"
+            else -> path.hashCode().toString(16)
+        }
+        val f = try {
+            File(path)
+        } catch (_: Throwable) {
+            return OneRead.Error("invalid-path", tag)
+        }
+        if (!f.isFile) return OneRead.Missing("missing", tag)
+        if (!f.canRead()) return OneRead.Missing("unreadable", tag)   // 域限制（P1 实测：system_server 对 local）
+        val stamp = runCatching { f.lastModified() to f.length() }.getOrNull()
+            ?: return OneRead.Error("stat-failed", tag)
+        if (stamp == fileStamps[path]) return OneRead.Unchanged  // 票据只在成功后写入：失败重试不受阻
+        val text = try {
+            f.readText()
+        } catch (t: Throwable) {
+            return OneRead.Error("read:${t.javaClass.simpleName}", tag)
+        }
+        return OneRead.Content(tag, stamp, text)
     }
 
     // ---------------------------------------------------------------- 配置版本监听

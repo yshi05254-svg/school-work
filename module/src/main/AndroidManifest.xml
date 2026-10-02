@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 无 Activity：纯 libxposed 新 API 模块，入口由 META-INF/xposed/java-init.list 声明 -->
+    <application
+        android:allowBackup="false"
+        android:label="ven11 module">
+
+        <!-- LSPosed 模块识别；93 = libxposed 新 API（API 100）所需最低框架版本 -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="ven11 virtual environment (location/cell/wifi/sim/bt/language/tz)" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="93" />
+    </application>
+</manifest>

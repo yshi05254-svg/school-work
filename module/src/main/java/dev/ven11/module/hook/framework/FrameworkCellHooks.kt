@@ -41,6 +41,14 @@ import java.util.concurrent.ConcurrentHashMap
  */
 object FrameworkCellHooks {
 
+    /**
+     * PIM 的宿主是 TeleService APK（packages/services/Telephony，包名 com.android.phone），
+     * 不在 com.android.internal.telephony——后者那个名字在任何 classloader 里都不存在
+     * （审查七 #2：表现为"boot classloader 找不到类"，实为类名写错）。
+     * defaultClassLoader（phone 进程 = TeleService apk 的 classloader）能直接加载。
+     */
+    private const val PIM_CLASS = "com.android.phone.PhoneInterfaceManager"
+
     private val lastLog = ConcurrentHashMap<String, Long>()
     private const val LOG_INTERVAL_MS = 30_000L
 
@@ -60,9 +68,12 @@ object FrameworkCellHooks {
     fun install(module: XposedModule, cl: ClassLoader): Int {
         var n = 0
         val pim = try {
-            cl.loadClass("com.android.internal.telephony.PhoneInterfaceManager")
-        } catch (_: Throwable) {
-            ProbeLog.log("FW-CELL class not found")
+            cl.loadClass(PIM_CLASS)
+        } catch (t: Throwable) {
+            // 失败原因必须带类名进 logcat（ProbeLog 不落到标准 logcat 缓冲，
+            // 只有 ProbeLog 时设备上排查不到原因——审查七 #2）
+            ProbeLog.log("FW-CELL class not found: $PIM_CLASS (${t.javaClass.simpleName})")
+            module.log(Log.WARN, "VEN11", "FW-CELL class not found: $PIM_CLASS (${t.javaClass.simpleName})")
             return 0
         }
         CellInfoFactory.attach(cl)
@@ -96,50 +107,73 @@ object FrameworkCellHooks {
         module.hook(m).setId("ven11.fwcell.reqcb/${m.parameterTypes.size}")
             .intercept(object : XposedInterface.Hooker {
                 override fun intercept(chain: XposedInterface.Chain): Any? {
-                    // 调用身份必须在 proceed 前取：PIM 方法体内可能 clearCallingIdentity
+                    // 全部准备先于原注册（审查八 #3）：PIM 注册路径可能同步经回调交付
+                    // 第一条结果；调用身份也必须在 proceed 前取（PIM 方法体内可能
+                    // clearCallingIdentity）。回调是 AIDL binder 代理（实现 IInterface），
+                    // 按 IInterface 挑——PIM 签名随版本有差异且装箱 subId 排在回调前，
+                    // 按"首个非 String"挑会误中。
                     val uid = Binder.getCallingUid()
-                    val registered = chain.proceed()
-                    // 回调是 AIDL binder 代理（实现 IInterface）。不能按"首个非 String"
-                    // 挑：requestCellInfoUpdate(int subId, String pkg, String featureId,
-                    // ICellInfoCallback cb, ...) 里第一个非 String 参数是 subId（Integer）
-                    val cb = chain.args.firstOrNull { it is IInterface } ?: return registered
-                    synchronized(callbackIdentity) {
-                        callbackIdentity[cb] = uid to (UidResolver.pkgOfUid(uid) ?: "")
-                    }
-                    runCatching {
-                        dev.ven11.module.hook.util.CallbackHooks.install(
-                            module, "FW-CELL-CB", cb, null,
-                            methodNames = setOf("onCellInfoChanged", "onCellInfo"),
-                        ) { chain, _ ->
-                            // 交付时按回调实例反查注册方身份；查不到（进程重启前旧回调）
-                            // 回落当前 callingUid，再查不到 pkg 则透传
-                            val ident = synchronized(callbackIdentity) {
-                                callbackIdentity[chain.thisObject]
+                    val cb = runCatching { chain.args.firstOrNull { it is IInterface } }.getOrNull()
+                    if (cb != null) {
+                        runCatching {
+                            synchronized(callbackIdentity) {
+                                callbackIdentity[cb] = uid to (UidResolver.pkgOfUid(uid) ?: "")
                             }
-                            val dUid = ident?.first ?: Binder.getCallingUid()
-                            val args = chain.args
-                            val listIdx = args.indexOfFirst { it is List<*> }
-                            if (listIdx < 0) return@install chain.proceed()
-                            val real = args[listIdx] as List<*>
-                            // 系统调用与脱敏视角判断沿用 PIM 语义：真实空表=无权限，透传
-                            if (real.isEmpty()) return@install chain.proceed()
-                            val pkg = ident?.second?.takeIf { it.isNotEmpty() }
-                                ?: dev.ven11.module.hook.framework.UidResolver.pkgOfUid(dUid)
-                                ?: return@install chain.proceed()
-                            val eff = PolicyResolver.resolve(pkg, dUid)
-                            if (!eff.domainEnabled(PolicyResolver.Domain.CELL)) return@install chain.proceed()
-                            val env = eff.environment ?: return@install chain.proceed()
-                            val out = CellInfoFactory.build(env.cells)
-                            if (out.isEmpty()) return@install chain.proceed()
-                            // API 102 的 chain.args 不可变：复制数组后改写再 proceed
-                            val newArgs = args.toTypedArray()
-                            newArgs[listIdx] = out
-                            chain.proceed(newArgs)
                         }
-                    }.onFailure { ProbeLog.log("FW-CELL-CB-FAIL $it") }
-                    return registered
+                        runCatching {
+                            dev.ven11.module.hook.util.CallbackHooks.install(
+                                module, "FW-CELL-CB", cb, null,
+                                methodNames = setOf("onCellInfoChanged", "onCellInfo"),
+                            ) { chain, _ ->
+                                val out = try {
+                                    deliverCellInfo(chain)
+                                } finally {
+                                    // requestCellInfoUpdate 是一次性请求：交付完成后清除
+                                    // 实例身份登记（审查八 #3：一次性请求结束后清理）
+                                    synchronized(callbackIdentity) {
+                                        callbackIdentity.remove(chain.thisObject)
+                                    }
+                                }
+                                out
+                            }
+                        }.onFailure { ProbeLog.log("FW-CELL-CB-FAIL $it") }
+                    }
+                    // 原注册只执行一次；失败仅回滚本次实例的身份登记（类级钩保留，
+                    // 供其他实例共享——审查八 #3），异常原样传播保持 binder 语义
+                    return try {
+                        chain.proceed()
+                    } catch (t: Throwable) {
+                        if (cb != null) {
+                            synchronized(callbackIdentity) { callbackIdentity.remove(cb) }
+                        }
+                        throw t
+                    }
                 }
             })
+    }
+
+    /** FW-CELL-CB 交付改写：按回调实例反查注册方身份 → 重写 List 参数（一次性请求） */
+    private fun deliverCellInfo(chain: XposedInterface.Chain): Any? {
+        val ident = synchronized(callbackIdentity) { callbackIdentity[chain.thisObject] }
+        val dUid = ident?.first ?: Binder.getCallingUid()
+        val args = chain.args
+        val listIdx = args.indexOfFirst { it is List<*> }
+        if (listIdx < 0) return chain.proceed()
+        val real = args[listIdx] as List<*>
+        // 沿用 PIM 语义：真实空表=无权限，透传
+        if (real.isEmpty()) return chain.proceed()
+        val pkg = ident?.second?.takeIf { it.isNotEmpty() }
+            ?: UidResolver.pkgOfUid(dUid)
+            ?: return chain.proceed()
+        val eff = PolicyResolver.resolve(pkg, dUid)
+        if (!eff.domainEnabled(PolicyResolver.Domain.CELL)) return chain.proceed()
+        val env = eff.environment ?: return chain.proceed()
+        val out = CellInfoFactory.build(env.cells)
+        if (out.isEmpty()) return chain.proceed()
+        // API 102 的 chain.args 不可变：复制后改写再 proceed
+        val newArgs = args.toTypedArray()
+        newArgs[listIdx] = out
+        return chain.proceed(newArgs)
     }
 
     private fun hookPimMethod(module: XposedModule, m: Method, target: String) {

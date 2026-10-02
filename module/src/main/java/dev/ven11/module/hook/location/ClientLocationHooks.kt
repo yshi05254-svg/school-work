@@ -35,15 +35,16 @@ class ClientLocationHooks(private val module: XposedModule) {
 
     /**
      * orig → wrapper，按对象身份比较；所有读写均在 synchronized(wrappers) 内。
-     * 弱键映射（评审四/三轮 #4）只负责 orig 侧的注册去重；wrapper 对 orig 持
-     * **强引用**（审查五 #6）：系统侧经 binder transport 强引用的是 wrapper，
-     * wrapper 必须同样强引用 orig 才能复现"系统强引用应用 listener"的原始行为——
-     * 弱引用会让 `requestLocationUpdates(..., object : LocationListener {...})`
-     * 这类不另存引用的常见写法在 GC 后静默失去定位更新。映射清理只由
-     * removeUpdates 钩负责：应用弃置 listener 且不注销时，wrapper+orig 的驻留
-     * 与不加钩时系统强引用 orig 的驻留等价，不构成额外泄漏。
+     * 弱键 + **弱值**（审查六 #2）：wrapper 强引用 orig，若映射强持 wrapper 就会
+     * 形成"值强引用键"的固定环，条目永不回收——而有些注册是系统自己结束的
+     * （requestSingleUpdate；带 setMaxUpdates / setDurationMillis 的 LocationRequest），
+     * 应用不会再调 removeUpdates，listener 若是 Activity 内部类就整链泄漏。
+     * 弱值下：系统经 binder transport 强引用 wrapper（wrapper 强引用 orig），
+     * 注册存活期间弱引用恒可解；系统一释放 wrapper，弱值即可回收，orig 随应用
+     * 侧引用一起释放，条目自然失效。映射清理仍由 removeUpdates 钩负责显式删除。
      */
-    private val wrappers = synchronizedMap(WeakHashMap<LocationListener, SpoofListener>())
+    private val wrappers =
+        synchronizedMap(WeakHashMap<LocationListener, java.lang.ref.WeakReference<SpoofListener>>())
 
     /** 同步读取重入保护：如 getLastLocation → getLastKnownLocation，只在最外层替换 */
     private val inSync = ThreadLocal<Boolean>()
@@ -179,9 +180,11 @@ class ClientLocationHooks(private val module: XposedModule) {
                 for (i in args.indices) {
                     val a = args[i]
                     if (a is LocationListener && a !is SpoofWrapper) {
-                        // 同一 listener 重复注册复用同一 wrapper，系统侧按同一 transport 更新
+                        // 同一 listener 重复注册复用同一 wrapper，系统侧按同一 transport 更新；
+                        // 弱值可能已被回收（系统结束的注册），此时重建
                         args[i] = synchronized(wrappers) {
-                            wrappers.getOrPut(a) { SpoofListener(a, pkg, uid, provider) }
+                            wrappers[a]?.get() ?: SpoofListener(a, pkg, uid, provider)
+                                .also { wrappers[a] = java.lang.ref.WeakReference(it) }
                         }
                         changed = true
                     }
@@ -251,7 +254,7 @@ class ClientLocationHooks(private val module: XposedModule) {
                 for (i in args.indices) {
                     val orig = args[i] as? LocationListener ?: continue
                     if (orig is SpoofWrapper) continue
-                    val w = synchronized(wrappers) { wrappers[orig] } ?: continue
+                    val w = synchronized(wrappers) { wrappers[orig]?.get() } ?: continue
                     args[i] = w
                     swapped.add(orig to w)
                 }
@@ -260,9 +263,11 @@ class ClientLocationHooks(private val module: XposedModule) {
                     else chain.proceed()
                 } catch (t: Throwable) {
                     // 系统注销未确认：恢复映射，保留后续重试注销的翻译能力
-                    // （getOrPut：期间同 orig 若被其他线程重新注册则保留新 wrapper）
+                    // （期间同 orig 若被其他线程重新注册则保留新 wrapper）
                     synchronized(wrappers) {
-                        swapped.forEach { (o, w) -> wrappers.getOrPut(o) { w } }
+                        swapped.forEach { (o, w) ->
+                            if (!wrappers.containsKey(o)) wrappers[o] = java.lang.ref.WeakReference(w)
+                        }
                     }
                     throw t
                 }.also {
@@ -339,9 +344,10 @@ class ClientLocationHooks(private val module: XposedModule) {
     private fun installGnssCallback(m: Method, pkg: String, uid: Int) {
         module.hook(m).setId("ven11.loc.gnss.${sig(m)}").intercept(object : XposedInterface.Hooker {
             override fun intercept(chain: XposedInterface.Chain): Any? {
-                val registered = chain.proceed()
+                // 先装钩后注册（审查八 #3）：GNSS 活跃时注册路径可能同步交付首条状态；
+                // 回调识别只用 chain.args，无需先 proceed
                 val cb = chain.args.firstOrNull { it is android.location.GnssStatus.Callback }
-                    ?: return registered
+                    ?: return chain.proceed()
                 runCatching {
                     dev.ven11.module.hook.util.CallbackHooks.install(
                         module, "LOC-GNSS", cb, null,
@@ -349,8 +355,8 @@ class ClientLocationHooks(private val module: XposedModule) {
                         baseFallback = android.location.GnssStatus.Callback::class.java,
                     ) { cbChain, _ ->
                         // 注意：这里必须用交付回调自己的 chain（cbChain）——外层的 chain
-                        // 是 registerGnssStatusCallback 注册调用，已在上面 proceed 过，
-                        // 二次 proceed 等于重放注册而非交付卫星状态
+                        // 是 registerGnssStatusCallback 注册调用，注册在下方 proceed，
+                        // 拿它 proceed 等于重放注册而非交付卫星状态
                         val eff = dev.ven11.module.ipc.PolicyResolver.resolve(pkg, uid)
                         if (eff.domainEnabled(dev.ven11.module.ipc.PolicyResolver.Domain.LOCATION) &&
                             eff.environment != null && eff.policy?.strictMode == true
@@ -361,7 +367,8 @@ class ClientLocationHooks(private val module: XposedModule) {
                         }
                     }
                 }.onFailure { dev.ven11.module.ProbeLog.log("LOC-GNSS-FAIL $it") }
-                return registered
+                // 原注册只执行一次，异常原样传播；客户端钩身份进程级固定
+                return chain.proceed()
             }
         })
     }

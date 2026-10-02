@@ -91,7 +91,13 @@ data class VirtualSimSlot(
  */
 object SnapshotParser {
 
-    fun parse(text: String): Snapshot = try {
+    fun parse(text: String): Snapshot = parseOrNull(text) ?: Snapshot.EMPTY
+
+    /**
+     * 解析失败返回 null——与"合法的关闭配置"（JSON 合法但 masterEnabled=false/空段）
+     * 区分开（审查八 #2）：通道层据此决定重试与故障记录，而不是把两者都折叠成 EMPTY。
+     */
+    fun parseOrNull(text: String): Snapshot? = try {
         val root = JSONObject(text)
         Snapshot(
             configVersion = root.optLong("configVersion"),
@@ -119,7 +125,7 @@ object SnapshotParser {
                 .orEmpty(),
         )
     } catch (_: Throwable) {
-        Snapshot.EMPTY
+        null
     }
 
     private fun simSnapshot(j: JSONObject) = SimSnapshot(

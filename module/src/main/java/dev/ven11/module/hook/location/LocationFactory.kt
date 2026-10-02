@@ -148,7 +148,11 @@ object LocationFactory {
     private fun clearMockFlag(loc: Location) {
         val cleared = if (Build.VERSION.SDK_INT >= 31) {
             try {
-                loc.setIsMock(false)
+                // setIsMock 是隐藏 API（SDK 36 stub 无，审查八编译修正）：反射调用
+                Location::class.java
+                    .getDeclaredMethod("setIsMock", Boolean::class.java)
+                    .apply { isAccessible = true }
+                    .invoke(loc, false)
                 !loc.isMock
             } catch (_: Throwable) {
                 false

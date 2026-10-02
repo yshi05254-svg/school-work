@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 配置下发通道（审查八 #1）：读侧开放（被钩目标应用要读），写侧签名权限 -->
+    <permission
+        android:name="dev.ven11.module.permission.CONFIG"
+        android:protectionLevel="signature"
+        android:label="ven11 config publish" />
+    <uses-permission android:name="dev.ven11.module.permission.CONFIG" />
+
     <!-- 无 Activity：纯 libxposed 新 API 模块，入口由 META-INF/xposed/java_init.list 声明 -->
     <application
         android:allowBackup="false"
@@ -16,13 +23,6 @@
         <meta-data
             android:name="xposedminversion"
             android:value="93" />
-
-        <!-- 配置下发通道（审查八 #1）：读侧开放（被钩目标应用要读），写侧签名权限 -->
-        <permission
-            android:name="dev.ven11.module.permission.CONFIG"
-            android:protectionLevel="signature"
-            android:label="ven11 config publish" />
-        <uses-permission android:name="dev.ven11.module.permission.CONFIG" />
 
         <provider
             android:name="dev.ven11.module.publish.ConfigContentProvider"

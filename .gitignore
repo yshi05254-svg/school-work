@@ -12,5 +12,5 @@ build/
 local.properties
 
 # 日志与设备抓取物（logcat、设备数据库、抓包、临时脚本）
-/log
+log/
 

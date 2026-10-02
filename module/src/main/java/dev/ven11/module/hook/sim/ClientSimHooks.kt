@@ -24,9 +24,11 @@ import java.lang.reflect.Method
  * - 非激活卡槽按"无卡"处理：SIM_STATE_ABSENT / hasIccCard=false / 标识类返回 null（#7）。
  * - PLMN = mcc + mnc 原样拼接，不做补零；位数由配置保证（#5）。
  * - 网络侧出口（getNetworkOperator* / getNetworkType 等）在本类 hook，但门控跟随
- *   CELL 域（取值优先服务小区）；SIM 配置仅在 sim.enabled 时作回落源（审查五）。
- * - getDefault*SubscriptionId：真机存在默认订阅时透传真实 subId（避免虚拟 id 流入
- *   短信/数据等框架内部通路弄坏功能），仅真机无默认订阅时注入虚拟值保持一致。
+ *   CELL 域（取值优先服务小区，getNetworkCountryIso 按 MCC 推导）；SIM 配置仅在
+ *   sim.enabled 时作回落源（审查五/六）。
+ * - getDefault*SubscriptionId：透传真实值（默认数据/语音/短信是独立选择，真机 id
+ *   是框架内部通路的硬依赖）；卡身份按订阅拓扑配对对齐（审查八 #5），无默认订阅
+ *   保留 INVALID 语义。
  */
 class ClientSimHooks(private val module: XposedModule) {
 
@@ -173,7 +175,7 @@ class ClientSimHooks(private val module: XposedModule) {
             return Decided.Origin
         }
         val rt = m.returnType
-        val slot = if (simOn) resolveSlot(chain, sim, e.kind) else null
+        val slot = if (simOn) resolveSlot(chain, alignedSlots(sim), e.kind) else null
         val a = slot?.takeIf { it.active }          // 非激活卡槽按"无卡"处理（#7）
         return when (e.target) {
             "identity" -> replaceIfAllowed(chain, rt) { a?.let { deriveImei(it) } }
@@ -201,7 +203,11 @@ class ClientSimHooks(private val module: XposedModule) {
             }
             // 网络运营商标名无独立 cell 来源，由 SIM 配置承载（carrierName）
             "netopName" -> netValue(chain, rt) { a?.carrierName?.ifEmpty { null } }
-            "netCountry" -> netValue(chain, rt) { a?.countryIso?.ifEmpty { null } }
+            "netCountry" -> netValue(chain, rt) {
+                // 只开 CELL 无 SIM 配置时也跟随伪装基站：按服务小区 MCC 推国家码
+                servingCell(eff)?.let { countryFromMcc(it.mcc) }
+                    ?: a?.countryIso?.ifEmpty { null }
+            }
             "phoneType" -> replaceIfAllowed(chain, rt) { 1 }   // PHONE_TYPE_GSM：虚拟卡槽按 GSM 栈
             "netType" -> netValue(chain, rt) { networkTypeOf(eff) }
             else -> Decided.Origin                  // 表驱动安全网
@@ -217,13 +223,35 @@ class ClientSimHooks(private val module: XposedModule) {
     private fun networkTypeOf(eff: dev.ven11.module.ipc.PolicyResolver.EffectivePolicy): Int? {
         val cell = servingCell(eff) ?: return null
         val rat = dev.ven11.module.hook.cell.CellInfoFactory.ratTypeOf(cell.radioType) ?: return null
-        return when (rat) {
-            dev.ven11.module.hook.cell.CellInfoFactory.Rat.GSM -> 16      // NETWORK_TYPE_GSM
-            dev.ven11.module.hook.cell.CellInfoFactory.Rat.WCDMA -> 3     // NETWORK_TYPE_UMTS
-            dev.ven11.module.hook.cell.CellInfoFactory.Rat.LTE -> 13      // NETWORK_TYPE_LTE
-            dev.ven11.module.hook.cell.CellInfoFactory.Rat.TDSCDMA -> 17  // NETWORK_TYPE_TD_SCDMA
-            dev.ven11.module.hook.cell.CellInfoFactory.Rat.NR -> 20       // NETWORK_TYPE_NR
+        return dev.ven11.module.hook.cell.CellInfoFactory.networkTypeOf(rat)
+    }
+
+    /** 常用 MCC → ISO 国家码兜底表（MccTable 反射不可用时用；小写，对齐 countryIso 惯例） */
+    private val MCC_COUNTRY = mapOf(
+        "460" to "cn", "461" to "cn",
+        "310" to "us", "311" to "us", "312" to "us", "313" to "us", "314" to "us", "315" to "us", "316" to "us",
+        "302" to "ca", "234" to "gb", "235" to "gb", "208" to "fr", "262" to "de", "222" to "it", "214" to "es",
+        "440" to "jp", "441" to "jp", "450" to "kr", "466" to "tw", "454" to "hk", "455" to "mo",
+        "404" to "in", "405" to "in", "505" to "au", "240" to "se", "242" to "no", "206" to "be",
+    )
+
+    /**
+     * MCC → ISO 国家码（审查六：只开 CELL 时 getNetworkCountryIso 也应跟随伪装基站）。
+     * 优先反射 AOSP 隐藏表 MccTable.countryCodeForMcc（全量、框架维护）；反射被
+     * 隐藏 API 策略挡掉时用内置常用表兜底；都查不到返回 null（调用方回落 SIM 配置/真实值）。
+     */
+    private fun countryFromMcc(mcc: String): String? {
+        val code = mcc.trim().takeWhile { it.isDigit() }
+        if (code.length < 3) return null
+        try {
+            val mt = Class.forName("com.android.internal.telephony.MccTable")
+            val m = mt.getDeclaredMethod("countryCodeForMcc", Int::class.javaPrimitiveType)
+            m.isAccessible = true
+            val v = m.invoke(null, code.toInt()) as? String
+            if (!v.isNullOrEmpty()) return v
+        } catch (_: Throwable) {
         }
+        return MCC_COUNTRY[code]
     }
 
     /** 网络侧取值：虚拟值为 null（无小区且无 SIM 配置）→ Origin 保持真实；否则 proceed-first 替换 */
@@ -275,17 +303,28 @@ class ClientSimHooks(private val module: XposedModule) {
         if (!sim.enabled || sim.slots.isEmpty()) return Decided.Origin
         val rt = m.returnType
         val arg = chain.args.firstOrNull() as? Int
-        val infos = cachedInfos(sim)
+        // 卡身份对齐（审查八 #5）：默认查询透传的真实 subId 与虚拟列表/查询类出口
+        // 在同一 id 下才有意义
+        val slots = alignedSlots(sim)
+        val infos = cachedInfos(sim, slots)
         return when (target) {
             // ---- 权限类出口（评审二/三轮 #6）：gated 先 proceed 复现权限语义；
             // ---- 注入判据是调用方自身的 READ_PHONE_STATE（见 gated 注释），
             // ---- 不再以"真实结果是否为空"推断——无实体 SIM 的真机上也能注入虚拟 SIM
-            "list" -> gated(chain, rt, canReadPhoneState()) { ArrayList(infos.map { it.second }) }
+            "list" -> gated(chain, rt, canReadPhoneState(), onOrigin = { o ->
+                // 完整拓扑捕获（审查八 #5）：真实订阅列表的 subId 集合
+                (o as? List<*>)?.let { l ->
+                    noteRealTopology(l.mapNotNull { callInt(it, "getSubscriptionId") }.toIntArray())
+                }
+            }) { ArrayList(infos.map { it.second }) }
             "available" -> gated(chain, rt, canReadPhoneState()) {
-                ArrayList(sim.slots.filter { !it.active }.mapNotNull { buildSubscriptionInfo(it) })
+                ArrayList(slots.filter { !it.active }.mapNotNull { buildSubscriptionInfo(it) })
             }
             "count" -> gated(chain, rt, canReadPhoneState()) { infos.size }
-            "ids" -> gated(chain, rt, canReadPhoneState()) { infos.map { it.first.subId }.toIntArray() }
+            "ids" -> gated(chain, rt, canReadPhoneState(), onOrigin = { o ->
+                // 完整拓扑捕获（审查八 #5）：真实有效订阅 id 列表
+                (o as? IntArray)?.let { noteRealTopology(it) }
+            }) { infos.map { it.first.subId }.toIntArray() }
             "bySubId" -> gated(chain, rt, canReadPhoneState()) { infos.firstOrNull { it.first.subId == arg }?.second }  // 参数语义 = subId（#12），查无匹配返回 null
             "bySlot" -> gated(chain, rt, canReadPhoneState()) { infos.firstOrNull { it.first.slotIndex == arg }?.second }
             // getPhoneNumber 系列：READ_PHONE_NUMBERS 独立授权即可（API 33+）
@@ -293,10 +332,10 @@ class ClientSimHooks(private val module: XposedModule) {
                 infos.firstOrNull { it.first.subId == arg }?.first?.phoneNumber?.ifEmpty { null }
             }
             // ---- 非权限出口：静态工具 / 计数上限，直接替换
-            "countMax" -> direct(sim.slots.size, rt)
-            "defaultId" -> defaultSubId(chain, rt, infos)
-            "slotOfSub" -> direct(sim.slots.firstOrNull { it.subId == arg }?.slotIndex ?: -1, rt)
-            "subsOfSlot" -> Decided.Value(infos.firstOrNull { it.first.slotIndex == arg }?.let { intArrayOf(it.first.subId) })
+            "countMax" -> direct(slots.size, rt)
+            "defaultId" -> defaultSubId(chain, rt, sim)
+            "slotOfSub" -> direct(slots.firstOrNull { it.subId == arg }?.slotIndex ?: -1, rt)
+            "subsOfSlot" -> Decided.Value(slots.firstOrNull { it.slotIndex == arg }?.let { intArrayOf(it.subId) })
             else -> Decided.Origin
         }
     }
@@ -466,33 +505,67 @@ class ClientSimHooks(private val module: XposedModule) {
     /* ============ 卡槽解析（#6） ============ */
 
     /**
-     * getDefault*SubscriptionId（审查五 #244）：先 proceed——真机已有默认订阅
-     * （返回 ≥0）时透传真实 subId：应用进程内的框架代码（短信/数据等通路）会拿
-     * 这个 id 直接走 binder，虚拟 id 在系统侧查无订阅，会把功能弄坏；真机无默认
-     * 订阅（INVALID）时才注入虚拟 subId，与虚拟订阅列表保持一致。
-     * proceed 之后不允许返回 Origin（dispatch 对 Origin 会二次 proceed，#2）。
+     * 真机有效订阅拓扑（升序 subId）。由真实出口捕获：ids / list 出口 proceed 得到
+     * 完整拓扑；default* 出口 proceed 得到的真实默认 id 作为种子（拓扑子集，随后被
+     * 完整拓扑覆盖）。映射只随订阅拓扑变化更新，不随查询顺序更新（审查八 #5）。
      */
-    private fun defaultSubId(
-        chain: XposedInterface.Chain,
-        rt: Class<*>,
-        infos: List<Pair<VirtualSimSlot, SubscriptionInfo>>,
-    ): Decided {
-        val virtual = infos.firstOrNull()?.first?.subId ?: INVALID_SUBSCRIPTION_ID
+    @Volatile
+    private var realSubIds: IntArray = IntArray(0)
+
+    /** 拓扑变化才更新（升序比较）；缓存指纹随数组内容变化，infos 自动重建 */
+    private fun noteRealTopology(ids: IntArray) {
+        val sorted = ids.filter { it >= 0 }.sorted().toIntArray()
+        if (realSubIds.contentEquals(sorted)) return
+        realSubIds = sorted
+        if (sorted.isNotEmpty()) {
+            ProbeLog.log("SIM real subscription topology -> ${sorted.joinToString(",")}")
+        }
+    }
+
+    /**
+     * 卡身份对齐（审查八 #5，替代上一轮"默认查询改写首卡 subId"的做法）：
+     * 按拓扑位置把激活虚拟卡与真机有效订阅配对（第 i 张 ↔ 第 i 个真实 subId），
+     * 虚拟卡**改用配对的真实 subId 作自身 id**（保留真实有效 subId、替换卡资料）——
+     * 默认数据/语音/短信各自透传的真实 id 与虚拟列表天然一致，且映射稳定不随查询
+     * 漂移。真实订阅覆盖不到的额外虚拟卡保留配置 subId：纯模拟身份，无真实承载
+     * （短信/通话/数据不可用），留痕标注。
+     */
+    private fun alignedSlots(sim: SimSnapshot): List<VirtualSimSlot> {
+        val real = realSubIds
+        if (real.isEmpty()) return sim.slots
+        val active = sim.slots.filter { it.active }.sortedBy { it.slotIndex }
+        if (active.isEmpty()) return sim.slots
+        val paired = HashMap<Int, Int>()
+        active.forEachIndexed { i, s -> if (i < real.size) paired[s.subId] = real[i] }
+        if (active.size > real.size) {
+            failOnce("sim-extra", "SIM ${active.size - real.size} 张虚拟卡无真实承载（模拟身份）")
+        }
+        return sim.slots.map { paired[it.subId]?.let { rid -> it.copy(subId = rid) } ?: it }
+    }
+
+    /**
+     * getDefault*SubscriptionId（审查八 #5）：透传真实值——默认数据/语音/短信是各自
+     * 独立的选择，真机 id 也是框架内部通路（短信/数据）的硬依赖；卡身份经
+     * [alignedSlots] 按"真实有效 subId"对齐后，透传值与虚拟列表天然一致。真实默认
+     * 不存在（无卡/未插卡）时保留 INVALID 语义，不再用虚拟 subId 顶替。proceed 之后
+     * 不允许返回 Origin（dispatch 对 Origin 会二次 proceed，#2）。
+     */
+    private fun defaultSubId(chain: XposedInterface.Chain, rt: Class<*>, sim: SimSnapshot): Decided {
         val origin = try {
             chain.proceed()
         } catch (se: SecurityException) {
             return Decided.Rethrow(se)
         } catch (_: Throwable) {
-            return Decided.Value(coerceToSubId(virtual, rt))
+            return Decided.Value(coerceToSubId(INVALID_SUBSCRIPTION_ID, rt))
         }
-        return if (origin is Int && origin >= 0) {
-            Decided.Value(coerceToSubId(origin, rt))
-        } else {
-            Decided.Value(coerceToSubId(virtual, rt))
+        if (origin is Int && origin >= 0) {
+            noteRealTopology(intArrayOf(origin))   // 种子拓扑；完整拓扑由 ids/list 出口覆盖
+            return Decided.Value(coerceToSubId(origin, rt))
         }
+        return Decided.Value(coerceToSubId(INVALID_SUBSCRIPTION_ID, rt))
     }
 
-    /** defaultId 出口返回类型恒为 Int；coerce 只为防 ROM 差异，不符即回落虚拟/真实值本身 */
+    /** defaultId 出口返回类型恒为 Int；coerce 只为防 ROM 差异，不符即回落值本身 */
     private fun coerceToSubId(v: Any?, rt: Class<*>): Any? {
         val c = coerce(v, rt)
         return if (c === MISS) v else c
@@ -504,15 +577,15 @@ class ClientSimHooks(private val module: XposedModule) {
      * 无参时读 createForSubscriptionId 实例的 subId，再回落默认（首个激活）卡。
      * 显式按索引/subId 命中的卡槽即使非激活也原样返回，"无卡"语义由取值处给出（#7）。
      */
-    private fun resolveSlot(chain: XposedInterface.Chain, sim: SimSnapshot, kind: ArgKind): VirtualSimSlot? {
+    private fun resolveSlot(chain: XposedInterface.Chain, slots: List<VirtualSimSlot>, kind: ArgKind): VirtualSimSlot? {
         val arg = chain.args.firstOrNull() as? Int      // #1：无参重载安全取参
         return when {
-            arg != null && kind == ArgKind.SLOT -> sim.slots.firstOrNull { it.slotIndex == arg }
-            arg != null && kind == ArgKind.SUB_ID -> sim.slots.firstOrNull { it.subId == arg }
+            arg != null && kind == ArgKind.SLOT -> slots.firstOrNull { it.slotIndex == arg }
+            arg != null && kind == ArgKind.SUB_ID -> slots.firstOrNull { it.subId == arg }
             else -> {
                 val sid = instanceSubId(chain.thisObject)
-                sim.slots.firstOrNull { sid != null && it.subId == sid }
-                    ?: sim.slots.firstOrNull { it.active }
+                slots.firstOrNull { sid != null && it.subId == sid }
+                    ?: slots.firstOrNull { it.active }
             }
         }
     }
@@ -627,6 +700,7 @@ class ClientSimHooks(private val module: XposedModule) {
         chain: XposedInterface.Chain,
         rt: Class<*>,
         allowed: Boolean,
+        onOrigin: (Any?) -> Unit = {},
         virtual: () -> Any?,
     ): Decided {
         val origin = try {
@@ -638,7 +712,13 @@ class ClientSimHooks(private val module: XposedModule) {
             return if (allowed) Decided.Value(spoof(rt, virtual))
             else Decided.Value(neutralOf(rt))
         }
-        return if (allowed) Decided.Value(spoof(rt, virtual)) else Decided.Value(origin)
+        if (allowed) {
+            // 拓扑捕获（审查八 #5）：ids/list 出口的 proceed 结果就是真机订阅拓扑，
+            // 仅用于内部映射，不改变本出口的替换行为
+            onOrigin(origin)
+            return Decided.Value(spoof(rt, virtual))
+        }
+        return Decided.Value(origin)
     }
 
     /** 返回类型中性值：异常兜底时替换原方法结果，不返回类型不符的 null */
@@ -677,7 +757,8 @@ class ClientSimHooks(private val module: XposedModule) {
 
     /* ============ per-快照缓存（#15） ============ */
 
-    private class SimCache(val sim: SimSnapshot) {
+    /** infos 内的 subId 已按真实订阅拓扑对齐：拓扑变化即整表重建（审查八 #5） */
+    private class SimCache(val sim: SimSnapshot, val topoFp: Int) {
         var infos: List<Pair<VirtualSimSlot, SubscriptionInfo>>? = null
         var props: Map<String, String>? = null
     }
@@ -685,30 +766,32 @@ class ClientSimHooks(private val module: XposedModule) {
     @Volatile
     private var cache: SimCache? = null
 
-    /** 以 SimSnapshot 实例为失效票据：快照不可变、按 config_version 整体替换，引用不同即重建 */
-    private fun cacheFor(sim: SimSnapshot): SimCache {
+    /** 以 (SimSnapshot 实例, 拓扑指纹) 为失效票据：快照不可变、任一票据变化即重建 */
+    private fun cacheFor(sim: SimSnapshot, topoFp: Int): SimCache {
         val c = cache
-        if (c != null && c.sim === sim) return c
-        return SimCache(sim).also { cache = it }
+        if (c != null && c.sim === sim && c.topoFp == topoFp) return c
+        return SimCache(sim, topoFp).also { cache = it }
     }
 
-    private fun cachedInfos(sim: SimSnapshot): List<Pair<VirtualSimSlot, SubscriptionInfo>> {
-        cacheFor(sim).infos?.let { return it }
+    private fun cachedInfos(sim: SimSnapshot, slots: List<VirtualSimSlot>): List<Pair<VirtualSimSlot, SubscriptionInfo>> {
+        val fp = realSubIds.contentHashCode()
+        cacheFor(sim, fp).infos?.let { return it }
         // 构造失败的卡槽整条剔除（评审二：Pair 恒非 null 的写法会留下 null second，
         // 后续 .second 取值即 NPE）
-        val built = sim.slots.filter { it.active }
+        val built = slots.filter { it.active }
             .mapNotNull { s -> buildSubscriptionInfo(s)?.let { s to it } }
-        if (built.isEmpty() && sim.slots.any { it.active }) {
+        if (built.isEmpty() && slots.any { it.active }) {
             // #12：构造全线失败要留痕。不回落 proceed——那会把宿主真实订阅信息泄漏给被测 App
             ProbeLog.log("SIM-ERR subinfo build failed sdk=${Build.VERSION.SDK_INT}")
         }
-        cacheFor(sim).infos = built
+        cacheFor(sim, fp).infos = built
         return built
     }
 
     /** 多卡按 slotIndex 排序占位拼接，空槽填 ABSENT / 空串，逗号位置与卡槽不错位（#7） */
     private fun cachedProps(sim: SimSnapshot): Map<String, String> {
-        cacheFor(sim).props?.let { return it }
+        val fp = realSubIds.contentHashCode()
+        cacheFor(sim, fp).props?.let { return it }
         val sorted = sim.slots.sortedBy { it.slotIndex }
         val p = mapOf(
             "gsm.sim.state" to sorted.joinToString(",") { if (it.active) "READY" else "ABSENT" },
@@ -717,7 +800,7 @@ class ClientSimHooks(private val module: XposedModule) {
             // alpha 含逗号会被消费方按槽拆坏（#7）
             "gsm.sim.operator.alpha" to sorted.joinToString(",") { if (it.active) it.carrierName.replace(',', ' ') else "" },
         )
-        cacheFor(sim).props = p
+        cacheFor(sim, fp).props = p
         return p
     }
 

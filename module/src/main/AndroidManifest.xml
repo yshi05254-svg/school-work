@@ -16,5 +16,18 @@
         <meta-data
             android:name="xposedminversion"
             android:value="93" />
+
+        <!-- 配置下发通道（审查八 #1）：读侧开放（被钩目标应用要读），写侧签名权限 -->
+        <permission
+            android:name="dev.ven11.module.permission.CONFIG"
+            android:protectionLevel="signature"
+            android:label="ven11 config publish" />
+        <uses-permission android:name="dev.ven11.module.permission.CONFIG" />
+
+        <provider
+            android:name="dev.ven11.module.publish.ConfigContentProvider"
+            android:authorities="dev.ven11.module.config"
+            android:exported="true"
+            android:writePermission="dev.ven11.module.permission.CONFIG" />
     </application>
 </manifest>

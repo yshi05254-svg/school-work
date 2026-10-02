@@ -26,9 +26,11 @@ class MainActivity : ComponentActivity() {
             AppTheme {
                 MenuNavHost(
                     registry = AppMenus.registry,
-                    onCustomAction = { key ->
+                    onCustomAction = { key, values ->
                         when (key) {
-                            "publish" -> publishSnapshot(targetPackages = defaultTargets)
+                            // 发布按钮与保存按钮同源：都读"目标包名"输入框（审查六 #4），
+                            // 且发布不经过服务器地址的必填/URL 校验
+                            "publish" -> publishSnapshot(targetPackages = parseTargets(values["targets"]))
                             else -> Toast.makeText(this, "点击：$key", Toast.LENGTH_SHORT).show()
                         }
                     },
@@ -46,13 +48,25 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** 逗号/空格/分号分隔的包名列表；留空回落 [defaultTargets] */
-    private fun parseTargets(raw: String?): List<String> =
-        raw?.split(',', '，', ' ', ';', '；')
+    /**
+     * 逗号/空格/分号分隔的包名列表；留空回落 [defaultTargets]。
+     * 逐个做包名格式校验（审查六 #4）：包名会原样拼进快照 JSON，带引号/反斜杠的
+     * 输入会破坏 JSON，模块侧解析失败回落 EMPTY 而管理端仍提示成功——不合规格的
+     * 段直接丢弃并提示。
+     */
+    private fun parseTargets(raw: String?): List<String> {
+        val parsed = raw?.split(',', '，', ' ', ';', '；')
             ?.map { it.trim() }
             ?.filter { it.isNotEmpty() }
-            ?.takeIf { it.isNotEmpty() }
-            ?: defaultTargets
+            .orEmpty()
+        if (parsed.isEmpty()) return defaultTargets
+        val valid = parsed.filter { PKG_RE.matches(it) }
+        val dropped = parsed.size - valid.size
+        if (dropped > 0) {
+            Toast.makeText(this, "已忽略 $dropped 个不合法的包名", Toast.LENGTH_SHORT).show()
+        }
+        return valid.ifEmpty { defaultTargets }
+    }
 
     /**
      * 配置下发的唯一入口：构造快照 JSON → SnapshotPublisher 原子写入
@@ -73,5 +87,10 @@ class MainActivity : ComponentActivity() {
                 Toast.makeText(this, r.message, if (r.ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    private companion object {
+        /** Android 包名：点分段，段首为字母，段内字母/数字/下划线 */
+        val PKG_RE = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$")
     }
 }

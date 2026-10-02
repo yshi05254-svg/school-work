@@ -34,12 +34,11 @@ object WifiInfoSpoofer {
     /**
      * 未连接（supplicant 未完成）→ 不改写，避免矛盾状态。
      * networkId 在 S+ 上对普通应用可能被系统脱敏为 -1（即使已连接且 SSID/BSSID
-     * 可见），所以 networkId=-1 不能直接判"未连接"——调用方先经 [isRedacted]
-     * 过滤过脱敏视角，这里以 supplicant COMPLETED 为主判据，networkId 作旁证。
+     * 可见），不能作为连接判据；调用方先经 [isRedacted] 过滤过脱敏视角，
+     * 这里以 supplicant COMPLETED 单一判据为准。
      */
     fun isConnected(info: WifiInfo): Boolean =
-        info.supplicantState == SupplicantState.COMPLETED &&
-            (info.networkId != -1 || info.ssid != WifiManager.UNKNOWN_SSID)
+        info.supplicantState == SupplicantState.COMPLETED
 
     /**
      * 反射改写 mWifiSsid/mBSSID/mRssi/mFrequency；WifiSsid 构造失败则整体放弃

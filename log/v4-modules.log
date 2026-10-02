@@ -1,0 +1,81 @@
+----part 1 start----
+[ 2026-10-03T03:31:53.105     1000:  3613:  3613 D/VectorModuleManager ] Loading module io.github.lsposed.disableflagsecure
+[ 2026-10-03T03:31:53.106     1000:  3613:  3613 V/VectorModuleManager ] Loading class class l
+[ 2026-10-03T03:31:53.106     1000:  3613:  3613 D/VectorModuleManager ] Loaded module io.github.lsposed.disableflagsecure successfully.
+[ 2026-10-03T03:31:53.106     1000:  3613:  3613 D/VectorModuleManager ] Loading module io.github.privacygate
+[ 2026-10-03T03:31:53.113     1000:  3613:  3613 V/VectorModuleManager ] Loading class class io.github.privacygate.hook.PgModule
+[ 2026-10-03T03:31:53.114     1000:  3613:  3613 D/VectorModuleManager ] Loaded module io.github.privacygate successfully.
+[ 2026-10-03T03:31:53.114     1000:  3613:  3613 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:31:53.121     1000:  3613:  3613 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:31:53.122     1000:  3613:  3613 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.
+[ 2026-10-03T03:31:59.204    10216:  5223:  5223 V/VectorLegacyBridge ] Loading legacy module com.chargepower.lsposed from /data/app/~~ssz8mZSIyIjNl-VWQJ-NcA==/com.chargepower.lsposed-RjL3z9tPSgOXOG7c7LJBxw==/base.apk
+[ 2026-10-03T03:31:59.205    10216:  5223:  5223 V/VectorLegacyBridge ]   Loading class com.chargepower.lsposed.MainHook
+[ 2026-10-03T03:31:59.234    10216:  5223:  5223 D/VectorModuleManager ] Loading module io.github.lsposed.disableflagsecure
+[ 2026-10-03T03:31:59.234    10216:  5223:  5223 V/VectorModuleManager ] Loading class class l
+[ 2026-10-03T03:31:59.234    10216:  5223:  5223 D/VectorModuleManager ] Loaded module io.github.lsposed.disableflagsecure successfully.
+[ 2026-10-03T03:31:59.330    10216:  5223:  5223 I/VectorLegacyBridge ] ChargePowerLsp v65: setDozeScreenState hooks=1
+[ 2026-10-03T03:31:59.331    10216:  5223:  5223 I/VectorLegacyBridge ] ChargePowerLsp v65: hooks installed: sleep=5 wake=4 (0 表示该系统版本方法名不同，将由广播/轮询兜底)
+[ 2026-10-03T03:31:59.573     1001:  5288:  5288 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:31:59.604     1001:  5288:  5288 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:31:59.605     1001:  5288:  5288 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.
+[ 2026-10-03T03:31:59.850     1002:  5440:  5440 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:31:59.931     1002:  5440:  5440 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:31:59.932     1002:  5440:  5440 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.
+[ 2026-10-03T03:32:00.076     1000:  5648:  5648 D/VectorModuleManager ] Loading module io.github.lsposed.disableflagsecure
+[ 2026-10-03T03:32:00.085     1000:  5648:  5648 V/VectorModuleManager ] Loading class class l
+[ 2026-10-03T03:32:00.087     1000:  5648:  5648 D/VectorModuleManager ] Loaded module io.github.lsposed.disableflagsecure successfully.
+[ 2026-10-03T03:32:00.826    10216:  5223:  6118 I/VectorLegacyBridge ] ChargePowerLsp v65: charging -> true
+[ 2026-10-03T03:32:01.070    10216:  5223:  5223 I/VectorLegacyBridge ] ChargePowerLsp v65: overlay window added, type=2017
+[ 2026-10-03T03:32:01.118    10216:  5223:  5300 I/VectorLegacyBridge ] ChargePowerLsp v65: setDozeScreenState hooks=0
+[ 2026-10-03T03:32:01.118    10216:  5223:  5300 I/VectorLegacyBridge ] ChargePowerLsp v65: hooks installed: sleep=0 wake=0 (0 表示该系统版本方法名不同，将由广播/轮询兜底)
+[ 2026-10-03T03:32:04.659    10258:  7519:  7519 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:32:04.691    10258:  7519:  7519 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:32:04.693    10258:  7519:  7519 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.
+[ 2026-10-03T03:32:07.147     1002:  8026:  8026 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:32:07.306     1002:  8026:  8026 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:32:07.325     1002:  8026:  8026 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.
+[ 2026-10-03T03:32:16.597    10361: 12963: 12963 D/VectorModuleManager ] Loading module org.matrix.vector.devmodehider
+[ 2026-10-03T03:32:16.598    10361: 12963: 12963 V/VectorModuleManager ] Loading class class org.matrix.vector.devmodehider.Entry
+[ 2026-10-03T03:32:16.600    10361: 12963: 12963 D/VectorModuleManager ] Loaded module org.matrix.vector.devmodehider successfully.
+[ 2026-10-03T03:32:16.600    10361: 12963: 12963 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:32:16.609    10361: 12963: 12963 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:32:16.610    10361: 12963: 12963 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.
+[ 2026-10-03T03:32:17.361    10343: 13110: 13110 V/VectorLegacyBridge ] Loading legacy module io.operit.jumpblocker from /data/app/~~1yuYF3G1Uhg5KeEJNhEhgQ==/io.operit.jumpblocker-HynKuCGpx-8N9bbtlK1Nfw==/base.apk
+[ 2026-10-03T03:32:17.365    10343: 13110: 13110 V/VectorLegacyBridge ]   Loading class io.operit.jumpblocker.JumpBlocker
+[ 2026-10-03T03:32:17.941    10343: 13110: 13110 I/VectorLegacyBridge ] JumpBlocker: active in com.sohu.inputmethod.sogou
+[ 2026-10-03T03:32:21.589    10361: 13161: 13161 D/VectorModuleManager ] Loading module org.matrix.vector.devmodehider
+[ 2026-10-03T03:32:21.605    10361: 13161: 13161 V/VectorModuleManager ] Loading class class org.matrix.vector.devmodehider.Entry
+[ 2026-10-03T03:32:21.609    10361: 13161: 13161 D/VectorModuleManager ] Loaded module org.matrix.vector.devmodehider successfully.
+[ 2026-10-03T03:32:21.609    10361: 13161: 13161 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:32:21.648    10361: 13161: 13161 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:32:21.649    10361: 13161: 13161 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.
+[ 2026-10-03T03:32:22.122    10175: 13972: 13972 V/VectorLegacyBridge ] Loading legacy module io.operit.jumpblocker from /data/app/~~1yuYF3G1Uhg5KeEJNhEhgQ==/io.operit.jumpblocker-HynKuCGpx-8N9bbtlK1Nfw==/base.apk
+[ 2026-10-03T03:32:22.321    10175: 13972: 13972 V/VectorLegacyBridge ]   Loading class io.operit.jumpblocker.JumpBlocker
+[ 2026-10-03T03:32:22.686    10258: 14576: 14576 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:32:22.892    10258: 14576: 14576 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:32:22.893    10258: 14576: 14576 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.
+[ 2026-10-03T03:32:23.321    10361: 14127: 14127 D/VectorModuleManager ] Loading module org.matrix.vector.devmodehider
+[ 2026-10-03T03:32:23.322    10361: 14127: 14127 V/VectorModuleManager ] Loading class class org.matrix.vector.devmodehider.Entry
+[ 2026-10-03T03:32:23.324    10361: 14127: 14127 D/VectorModuleManager ] Loaded module org.matrix.vector.devmodehider successfully.
+[ 2026-10-03T03:32:23.324    10361: 14127: 14127 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:32:23.352    10175: 13972: 13972 I/VectorLegacyBridge ] JumpBlocker: active in com.nearme.instant.platform
+[ 2026-10-03T03:32:23.357    10361: 14127: 14127 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:32:23.365    10361: 14127: 14127 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.
+[ 2026-10-03T03:32:28.855    10395: 16654: 16654 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:32:28.876    10395: 16654: 16654 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:32:28.878    10395: 16654: 16654 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.
+[ 2026-10-03T03:32:29.933     1000: 17012: 17012 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:32:29.998     1000: 17012: 17012 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:32:30.003     1000: 17012: 17012 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.
+[ 2026-10-03T03:32:31.056     1000: 17416: 17416 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:32:31.103     1000: 17416: 17416 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:32:31.107     1000: 17416: 17416 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.
+[ 2026-10-03T03:32:32.832    10395: 17716: 17716 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:32:32.869    10395: 17716: 17716 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:32:32.873    10395: 17716: 17716 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.
+[ 2026-10-03T03:32:33.555    10395: 17941: 17941 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:32:33.571    10395: 17941: 17941 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:32:33.572    10395: 17941: 17941 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.
+[ 2026-10-03T03:32:34.614    10395: 18378: 18378 D/VectorModuleManager ] Loading module dev.ven11.module
+[ 2026-10-03T03:32:34.655    10395: 18378: 18378 V/VectorModuleManager ] Loading class class dev.ven11.module.Ven11Module
+[ 2026-10-03T03:32:34.657    10395: 18378: 18378 D/VectorModuleManager ] Loaded module dev.ven11.module successfully.

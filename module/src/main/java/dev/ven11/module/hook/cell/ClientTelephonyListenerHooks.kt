@@ -193,15 +193,31 @@ class ClientTelephonyListenerHooks(private val module: XposedModule) {
         val missed = ArrayList<String>()
         runCatching { out.setState(ServiceState.STATE_IN_SERVICE) }.onFailure { missed.add("setState") }
         runCatching { out.setRoaming(false) }.onFailure { missed.add("setRoaming") }
-        runCatching { out.setVoiceRegState(ServiceState.STATE_IN_SERVICE) }
-            .onFailure { missed.add("setVoiceRegState") }
-        runCatching { out.setDataRegState(ServiceState.STATE_IN_SERVICE) }
-            .onFailure { missed.add("setDataRegState") }
+        // setVoiceRegState/setDataRegState/…是隐藏 API（SDK 36 stub 无，审查八修正）：
+        // 与 setCellIdentity 同一反射路径
+        for (setter in listOf(
+            Triple("setVoiceRegState", intArrayOf(ServiceState.STATE_IN_SERVICE), "setVoiceRegState"),
+            Triple("setDataRegState", intArrayOf(ServiceState.STATE_IN_SERVICE), "setDataRegState"),
+        )) {
+            val (name, args, label) = setter
+            runCatching {
+                ServiceState::class.java
+                    .getDeclaredMethod(name, Int::class.java)
+                    .apply { isAccessible = true }
+                    .invoke(out, args[0])
+            }.onFailure { missed.add(label) }
+        }
         val netType = CellInfoFactory.ratTypeOf(serving.radioType)
             ?.let { CellInfoFactory.networkTypeOf(it) }
         if (netType != null) {
-            runCatching { out.setVoiceNetworkType(netType) }.onFailure { missed.add("setVoiceNetworkType") }
-            runCatching { out.setDataNetworkType(netType) }.onFailure { missed.add("setDataNetworkType") }
+            for (name in listOf("setVoiceNetworkType", "setDataNetworkType")) {
+                runCatching {
+                    ServiceState::class.java
+                        .getDeclaredMethod(name, Int::class.java)
+                        .apply { isAccessible = true }
+                        .invoke(out, netType)
+                }.onFailure { missed.add(name) }
+            }
         } else {
             missed.add("networkType(${serving.radioType})")
         }

@@ -458,8 +458,8 @@ class ClientSimHooks(private val module: XposedModule) {
         false
     }
 
-    private fun callInt(o: Any, name: String): Int? = try {
-        o.javaClass.getMethod(name).invoke(o) as? Int
+    private fun callInt(o: Any?, name: String): Int? = try {
+        o?.javaClass?.getMethod(name)?.invoke(o) as? Int
     } catch (_: Throwable) {
         null
     }
@@ -812,5 +812,13 @@ class ClientSimHooks(private val module: XposedModule) {
     private fun hitOnce(msg: String) {
         if (hitSeen.size > 512) hitSeen.clear()
         if (hitSeen.add(msg)) ProbeLog.log("SIM-SPOOF $msg")
+    }
+
+    /** 同类失败只记一次（对齐 CellInfoFactory.failOnce 语义） */
+    private val failSeen: MutableSet<String> =
+        java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap())
+
+    private fun failOnce(key: String, msg: String) {
+        if (failSeen.add(key)) ProbeLog.log(msg)
     }
 }

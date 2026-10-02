@@ -101,13 +101,13 @@ object SnapshotStore {
         // read == null（通道故障）或 ver<=0（框架通道从未发布）→ 文件兜底通道接管。
         // 文件通道的失败也要记录（审查八 #2：失败不可被当作"已处理"）
         val fr = readFile()
-        when {
-            fr is FileRead.Failed -> {
+        return when (fr) {
+            is FileRead.Failed -> {
                 if (read == null) recordFailure("provider+file read failed")
-                return emptyList()
+                emptyList()
             }
-            fr is FileRead.Unchanged -> return emptyList()
-            fr is FileRead.Content -> return consume(fr.stamp.toString(), fr.text) {
+            is FileRead.Unchanged -> emptyList()
+            is FileRead.Content -> consume(fr.stamp.toString(), fr.text) {
                 fileStamp = fr.stamp
             }
         }

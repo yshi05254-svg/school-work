@@ -13,12 +13,13 @@ private fun route(pageId: String) = "page/$pageId"
 
 /**
  * 整个菜单系统只有一个路由 page/{pageId}，新增页面不用改导航代码。
- * 业务逻辑通过两个回调接入：自定义按钮 [onCustomAction]、表单提交 [onSubmit]。
+ * 业务逻辑通过两个回调接入：自定义按钮 [onCustomAction]（带点击时本页表单快照）、
+ * 表单提交 [onSubmit]（已通过校验）。
  */
 @Composable
 fun MenuNavHost(
     registry: MenuRegistry,
-    onCustomAction: (key: String) -> Unit,
+    onCustomAction: (key: String, values: Map<String, String>) -> Unit,
     onSubmit: (pageId: String, values: Map<String, String>) -> Unit,
 ) {
     val nav = rememberNavController()
@@ -34,7 +35,7 @@ fun MenuNavHost(
                 onAction = { action ->
                     when (action) {
                         is MenuAction.OpenPage -> nav.navigate(route(action.pageId))
-                        is MenuAction.Custom -> onCustomAction(action.key)
+                        is MenuAction.Custom -> onCustomAction(action.key, action.values)
                         MenuAction.Submit -> Unit // 已在 MenuScreen 内处理
                     }
                 },

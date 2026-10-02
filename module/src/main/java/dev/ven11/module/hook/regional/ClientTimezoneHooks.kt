@@ -49,9 +49,11 @@ import java.util.TimeZone
  *     __system_property_get）；应尽早安装，赶在应用首次 native 时间调用之前；
  *  4. System.setProperty("user.timezone", tzId)：兼容直接读该属性的第三方库。
  *
- * apply/revert 统一在主线程执行（轮询/回调线程经 Handler post，装钩本就在主线程）：
- * Os.setenv 与 native 线程的 getenv/localtime 并发在 bionic 上不安全（审查五），
- * 除收口到主线程外，值不变时刷新是 no-op，setenv 仅在真实切换时发生一次。
+ * 并发语义（审查六 #5）：setenv 的风险是与**其它线程** native 代码的 getenv /
+ * localtime 并发，换线程执行并不能消除；真正的缓解是"值不变时刷新是 no-op"——
+ * setenv 只在伪装值真实切换时发生一次。apply/revert 一律在 refreshLock 内同步
+ * 执行（不 post）：post 到主线程既不解决上述并发，还引入主线程阻塞时每秒重复
+ * post、以及 apply/revert 不再按决策顺序串行的新问题。
  *
  * ID 校验：必须命中 TimeZone.getAvailableIDs()。ZoneId.of() 接受的 "+08:00"、
  * "UTC+8"、"Z" 等写法会导致 getTimeZone 静默回退 GMT / ICU 返回 Etc/Unknown /
@@ -80,16 +82,6 @@ class ClientTimezoneHooks(private val module: XposedModule) {
          * TimeZone.getAvailableIDs()：分配 ~600 个字符串再线性查找，纯浪费。
          */
         private val AVAILABLE_IDS: Set<String> = java.util.HashSet<String>(TimeZone.getAvailableIDs().toList())
-
-        /** 主线程执行器：apply/revert 里的 TimeZone.setDefault / Os.setenv 是进程全局
-         *  状态变更，统一在主线程串行做（装钩本就在主线程；轮询/回调线程只在主线程
-         *  已运行时 post——进程装钩阶段主 Looper 必已启动）。 */
-        private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
-
-        private inline fun onMainThread(crossinline body: () -> Unit) {
-            if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) body()
-            else mainHandler.post { body() }
-        }
     }
 
     // 进程级单 owner（与语言域一致：时区是进程全局状态，不可按包区分）
@@ -186,12 +178,12 @@ class ClientTimezoneHooks(private val module: XposedModule) {
             val valid = tzRaw.isNotEmpty() && tzRaw in AVAILABLE_IDS
             when {
                 valid && tzRaw == appliedTz -> return  // 无变化
-                valid -> onMainThread { apply(tzRaw) }
+                valid -> apply(tzRaw)
                 appliedTz != null -> {
                     if (tzRaw.isNotEmpty()) {
                         ProbeLog.log("TZ-HOOKS 非法时区 '$tzRaw'，恢复真实时区 pkg=$pkg")
                     }
-                    onMainThread { revert() }
+                    revert()
                 }
                 else -> {
                     if (tzRaw.isNotEmpty()) {

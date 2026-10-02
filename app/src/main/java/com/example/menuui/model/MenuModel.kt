@@ -16,7 +16,11 @@ enum class MenuLevel(val itemRange: IntRange) {
 /** 按钮点击后要做的事 */
 sealed interface MenuAction {
     data class OpenPage(val pageId: String) : MenuAction // 跳转到另一页
-    data class Custom(val key: String) : MenuAction       // 交给业务层处理
+    /** 交给业务层处理；values 是点击时本页表单快照（MenuScreen 填充，DSL 侧无需关心） */
+    data class Custom(
+        val key: String,
+        val values: Map<String, String> = emptyMap(),
+    ) : MenuAction
     data object Submit : MenuAction                       // 校验并提交本页所有输入
 }
 

@@ -2,6 +2,7 @@ package dev.ven11.module
 
 import android.util.Log
 import android.os.Process
+import dev.ven11.module.ProbeLog
 import dev.ven11.module.hook.bluetooth.ClientBluetoothHooks
 import dev.ven11.module.hook.cell.CellInfoFactory
 import dev.ven11.module.hook.cell.ClientCellHooks
@@ -27,10 +28,14 @@ import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
  *  - 入口类无参构造；生命周期回调 onModuleLoaded / onPackageLoaded / onSystemServerStarting；
  *  - PackageLoadedParam 提供 packageName / isFirstPackage / defaultClassLoader，
  *    不含 processName——phone 进程以 packageName == "com.android.phone" 识别。
+ *  - 作用域（META-INF/xposed/scope.list）：system_server 用虚拟包名 system 表示；
+ *    勾选 android（旧版管理器的"系统框架"）只会注入 android 包的 :ui 进程，
+ *    不会触发 onSystemServerStarting（审查七）。
  *
  * 进程分发：
- *  - system_server → 框架侧 WiFi 钩（WifiServiceImpl；PIM 在 com.android.phone，不在此装）
- *  - com.android.phone → 框架侧基站钩（PhoneInterfaceManager）
+ *  - system_server → 框架侧 WiFi 钩（WifiServiceImpl；S+ 的 service-wifi.jar
+ *    classloader 不存在时由 SystemServiceBridge 的 startServiceFromJar 延迟路径补装）
+ *  - com.android.phone → 框架侧基站钩（com.android.phone.PhoneInterfaceManager）
  *  - 普通应用（首个包）→ 客户端钩全套；模块自身与系统 uid 跳过
  */
 class Ven11Module : XposedModule() {
@@ -64,7 +69,16 @@ class Ven11Module : XposedModule() {
         val pkg = param.packageName
         val cl = param.defaultClassLoader
         when {
-            pkg == MODULE_PKG || pkg == "android" -> return
+            pkg == MODULE_PKG -> return
+            // android 包是旧版"系统框架"勾选对应的 :ui 进程，不是 system_server——
+            // system_server 走 onSystemServerStarting。记一条日志，避免"勾了 android
+            // 却零输出"被误判为模块未加载（审查七）
+            pkg == "android" -> {
+                log(Log.INFO, TAG,
+                    "android(:ui) loaded; system_server hooks live in onSystemServerStarting " +
+                        "(scope.list needs \"system\")")
+                return
+            }
             pkg == "com.android.phone" -> {
                 CellInfoFactory.attach(cl)
                 val n = FrameworkCellHooks.install(this, cl)

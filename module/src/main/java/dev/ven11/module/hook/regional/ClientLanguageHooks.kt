@@ -54,6 +54,12 @@ import java.util.concurrent.atomic.AtomicBoolean
  * locale（NDK / Unity 等引擎直读）不受影响；进程启动极早期已应用过的真实配置不重放，
  * 首个 Activity 的资源配置应用后即以目标 locale 生效。
  *
+ * 克隆改写的已知分歧（审查六 #6，需实机验证）：ResourcesImpl 收到的是伪装 locale 的
+ * 克隆副本，而 ActivityThread / Activity 保存的 Configuration 仍是真实值——应用若自行
+ * 比对 resources.configuration.locales 与 onConfigurationChanged 收到的 config（自研
+ * 多语言切换常见写法），会看到两边不一致。重点实测：语言切换、旋转屏幕时 Activity
+ * 是否被反复重建。
+ *
  * Chain 契约：参数替换统一走 chain.proceed(newArgs)（评审二：libxposed 的 Chain 没有
  * setArg，假定其存在会直接编译不过）。
  */

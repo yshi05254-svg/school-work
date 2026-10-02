@@ -24,6 +24,9 @@ object UidResolver {
     @Volatile
     private var sysCtx: Context? = null
 
+    @Volatile
+    private var appCtx: Context? = null
+
     fun systemContext(): Context? {
         sysCtx?.let { return it }
         return try {
@@ -33,6 +36,24 @@ object UidResolver {
         } catch (_: Throwable) {
             null
         }?.also { sysCtx = it }
+    }
+
+    /**
+     * 任意被钩进程可用的 Context：应用/phone 进程取 currentApplication，
+     * system_server 没有 Application（currentApplication 为 null），退回 SystemContext。
+     * 都取不到（极早期）返回 null，调用方按通道故障处理（审查八 #1）。
+     */
+    fun anyContext(): Context? {
+        appCtx?.let { return it }
+        try {
+            val at = Class.forName("android.app.ActivityThread")
+            (at.getMethod("currentApplication").invoke(null) as? Context)?.let {
+                appCtx = it
+                return it
+            }
+        } catch (_: Throwable) {
+        }
+        return systemContext()
     }
 
     fun pkgOfUid(uid: Int): String? {

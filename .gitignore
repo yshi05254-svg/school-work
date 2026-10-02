@@ -2,14 +2,12 @@
 build/
 */build/
 .gradle/
+.kotlin/
 
 # IDE 配置
 .idea/
 *.iml
 
-# 本地配置
-local.properties# Kotlin 编译器本地错误转储
-.kotlin/
+# 本地配置（含本机 SDK 路径）
+local.properties
 
-# 日志与设备抓取物
-log/

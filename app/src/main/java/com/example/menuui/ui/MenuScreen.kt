@@ -43,10 +43,13 @@ fun MenuScreen(
 ) {
     val form = rememberMenuFormState(page)
     val handleAction: (MenuAction) -> Unit = { action ->
-        if (action is MenuAction.Submit) {
-            if (form.validate()) onSubmit(form.snapshot())
-        } else {
-            onAction(action)
+        when (action) {
+            is MenuAction.Submit ->
+                if (form.validate()) onSubmit(form.snapshot())
+            // 自定义按钮随带本页表单快照（审查六：发布按钮需要读到"目标包名"输入框，
+            // 且不经过 Submit 的必填/格式校验——那些校验属于其它字段）
+            is MenuAction.Custom -> onAction(action.copy(values = form.snapshot()))
+            else -> onAction(action)
         }
     }
 

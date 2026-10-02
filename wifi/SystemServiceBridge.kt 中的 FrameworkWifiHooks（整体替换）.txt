@@ -1,0 +1,117 @@
+需要在 SystemServiceBridge.kt 补充这些 import（与既有重复的合并即可）： android.content.Context、android.net.wifi.ScanResult、android.os.Binder、android.os.Process、android.os.SystemClock、android.os.UserHandle、android.util.Log、java.lang.reflect.Method、java.util.concurrent.ConcurrentHashMap、dev.ven11.module.ProbeLog、dev.ven11.module.hook.wifi.ScanResultFactory、dev.ven11.module.hook.wifi.WifiPermissionGate、dev.ven11.module.ipc.PolicyResolver。
+
+
+
+/**
+ * 系统侧 WiFi 钩（wifi 栈所在进程）：
+ *  - getScanResults：按 Binder 调用方 uid 决策替换；返回值按被 hook 方法自身的返回类型
+ *    包装——List 直接返回，slice 型按 returnType 反射构造（天然兼容 Wi-Fi Mainline
+ *    jarjar 改名后的 ParceledListSlice），构造失败回退真实值
+ *  - getConnectionInfo 系统侧改写（跨 user 校验复杂，后续里程碑）未实现：不 hook、
+ *    纯透传，避免每次调用空跑 pkgOfUid/resolve
+ *  - 调用方放行条件：appId < FIRST_APPLICATION_UID（多用户下系统 uid 形如 1010000+，
+ *    不能用 uid<=2000 一刀切）；无包名 uid（isolated / SDK sandbox）放行
+ */
+object FrameworkWifiHooks {
+
+    private const val UID_PKG_TTL_MS = 60_000L
+
+    private class CachedPkg(val atMs: Long, val pkg: String?)
+
+    private val uidPkgCache = ConcurrentHashMap<Int, CachedPkg>()
+
+    @Volatile
+    private var cachedSystemContext: Context? = null
+
+    fun install(module: XposedModule, cl: ClassLoader): Int {
+        val implClass = try {
+            cl.loadClass("com.android.server.wifi.WifiServiceImpl")
+        } catch (_: Throwable) {
+            ProbeLog.log("FW-WIFI class not found")
+            return 0
+        }
+        var n = 0
+        for (m in implClass.declaredMethods) {
+            if (m.name != "getScanResults") continue
+            hookScan(module, m)
+            n++
+        }
+        module.log(Log.INFO, "VEN11", "framework wifi hooks installed=$n")
+        return n
+    }
+
+    private fun hookScan(module: XposedModule, m: Method) {
+        // id 带参数个数，防同名重载撞 id
+        module.hook(m).setId("ven11.fwwifi.scan/${m.parameterTypes.size}")
+            .intercept(object : XposedInterface.Hooker {
+                override fun intercept(chain: XposedInterface.Chain): Any? {
+                    // 调用身份在 proceed 前取，不依赖被钩方法是否恢复调用身份
+                    val callingUid = Binder.getCallingUid()
+                    val callingPid = Binder.getCallingPid()
+                    val real = chain.proceed()
+                    // 决策链异常不能经 binder 穿给调用方
+                    return runCatching { spoofScan(m, callingPid, callingUid, real) }
+                        .getOrElse { real }
+                }
+            })
+    }
+
+    private fun spoofScan(m: Method, pid: Int, uid: Int, real: Any?): Any? {
+        if (UserHandle.getAppId(uid) < Process.FIRST_APPLICATION_UID) return real
+        // 权限脱敏：真机上该调用方本就看不到扫描列表，放行真实（空）结果
+        if (!WifiPermissionGate.canSeeScanResults(pid, uid, systemContext())) return real
+        val pkg = pkgOfUid(uid) ?: return real  // isolated / SDK sandbox 等无包名 uid：放行
+        val eff = PolicyResolver.resolve(pkg, uid)
+        if (!eff.domainEnabled(PolicyResolver.Domain.WIFI)) return real
+        val env = eff.environment ?: return real
+        if (env.wifis.isEmpty()) return real
+        val out = ScanResultFactory.build(env.wifis)
+        ProbeLog.log("FW-WIFI-SPOOF uid=$uid scan n=${out.size}")
+        return wrapResult(m, real, out)
+    }
+
+    /** 以被 hook 方法自身的返回类型为准：List 直接返回；slice 型按 returnType 反射构造（兼容 Mainline 改名） */
+    private fun wrapResult(m: Method, real: Any?, list: List<ScanResult>): Any? {
+        val rt = m.returnType
+        if (List::class.java.isAssignableFrom(rt)) return list
+        return try {
+            rt.getDeclaredConstructor(List::class.java)
+                .apply { isAccessible = true }.newInstance(list)
+        } catch (_: Throwable) {
+            real  // 类型不符/构造失败回退真实值，不能把 ClassCastException 穿给调用方
+        }
+    }
+
+    private fun systemContext(): Context? {
+        cachedSystemContext?.let { return it }
+        val ctx = runCatching {
+            val at = Class.forName("android.app.ActivityThread")
+            val current = at.getMethod("currentActivityThread").invoke(null)
+            at.getMethod("getSystemContext").invoke(current) as? Context
+        }.getOrNull()
+        if (ctx != null) cachedSystemContext = ctx
+        return ctx
+    }
+
+    /**
+     * uid → 包名，带 TTL 缓存（裸查询每次要走一次 PMS binder）。
+     * 共享 uid（sharedUserId）返回多包名时按字典序取首个，保证多次解析结果稳定——
+     * 按 uid 级策略精确匹配仍是后续项；uid 回收复用（卸载重装）由 TTL 兜底。
+     */
+    fun pkgOfUid(uid: Int): String? {
+        val now = SystemClock.elapsedRealtime()
+        uidPkgCache[uid]?.let { if (now - it.atMs < UID_PKG_TTL_MS) return it.pkg }
+        val names = runCatching {
+            val ctx = systemContext() ?: return null
+            val token = Binder.clearCallingIdentity()
+            try {
+                ctx.packageManager.getPackagesForUid(uid)
+            } finally {
+                Binder.restoreCallingIdentity(token)
+            }
+        }.getOrNull()
+        val pkg = names?.minOrNull()
+        uidPkgCache[uid] = CachedPkg(now, pkg)
+        return pkg
+    }
+}

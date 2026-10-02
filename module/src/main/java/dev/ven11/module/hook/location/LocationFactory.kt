@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.provider.Settings
+import dev.ven11.module.ProbeLog
 import dev.ven11.module.ipc.PolicyResolver
 import dev.ven11.module.model.GpsJitter
 import dev.ven11.module.model.VirtualEnvironment
@@ -124,11 +125,9 @@ object LocationFactory {
         loc.bearing = env.bearing
         loc.time = System.currentTimeMillis()
         loc.elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
-        if (Build.VERSION.SDK_INT >= 31) {
-            // Location.isMock 无公开 setter（隐藏 API，直接调用编译不过）：反射清 mIsMock；
-            // 新构造对象本就是 false，失败可安全忽略
-            clearMockFlag(loc)
-        }
+        // 交付对象可能来自真实模板（模板自带 mock 标记时不清除就是指纹）：
+        // 构造完成后清除并读回验证（审查八 #6）
+        clearMockFlag(loc)
         try {
             loc.verticalAccuracyMeters = env.accuracy
             loc.speedAccuracyMetersPerSecond = 1.0f
@@ -138,12 +137,34 @@ object LocationFactory {
         return loc
     }
 
+    /**
+     * 清除 mock 标记并读回验证（审查八 #6）："没抛异常"不等于清掉了。API 31+ 走
+     * 公开的 setIsMock(false)/isMock()（API 31 起公开，不再猜私有字段）；旧版本反射
+     * mIsMock 并用 isFromMockProvider 读回。两条路都失败时保留限频诊断——旧版本
+     * 没有可靠清理手段，此时应避免携带 mock 模板，而不是声称清理成功。
+     * 只改本模块交付的对象，不碰全局 isMock 语义。
+     */
+    @Suppress("DEPRECATION")
     private fun clearMockFlag(loc: Location) {
-        try {
-            Location::class.java.getDeclaredField("mIsMock")
-                .apply { isAccessible = true }
-                .setBoolean(loc, false)
-        } catch (_: Throwable) {
+        val cleared = if (Build.VERSION.SDK_INT >= 31) {
+            try {
+                loc.setIsMock(false)
+                !loc.isMock
+            } catch (_: Throwable) {
+                false
+            }
+        } else {
+            try {
+                Location::class.java.getDeclaredField("mIsMock")
+                    .apply { isAccessible = true }
+                    .setBoolean(loc, false)
+                !loc.isFromMockProvider
+            } catch (_: Throwable) {
+                false
+            }
+        }
+        if (!cleared) {
+            ProbeLog.log("LOC-MOCK clear failed sdk=${Build.VERSION.SDK_INT}")
         }
     }
 

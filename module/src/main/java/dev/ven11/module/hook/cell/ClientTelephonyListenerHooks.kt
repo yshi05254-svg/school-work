@@ -65,12 +65,13 @@ class ClientTelephonyListenerHooks(private val module: XposedModule) {
         module.hook(m).setId("ven11.celllisten.${sig(m)}")
             .intercept(object : io.github.libxposed.api.XposedInterface.Hooker {
                 override fun intercept(chain: io.github.libxposed.api.XposedInterface.Chain): Any? {
-                    val registered = chain.proceed()
-                    // listen(PhoneStateListener, int events)：回调在首位——lastOrNull
-                    // 拿到的是 int events；registerTelephonyCallback(int?, Executor, cb)：
-                    // 回调固定在末位
+                    // 准备工作必须在原注册之前（审查八 #3）：AOSP TelephonyRegistry 的
+                    // 注册路径可能同步交付缓存的服务状态/基站结果，"先注册后装钩"会漏掉
+                    // 第一条（缓存命中 + 立即执行 Executor 时必现）。回调识别只用
+                    // chain.args，不需要先 proceed。listen(PhoneStateListener, int events)
+                    // 回调在首位；registerTelephonyCallback(int?, Executor, cb) 固定末位。
                     val cb = (if (legacy) chain.args.firstOrNull() else chain.args.lastOrNull())
-                        ?: return registered
+                        ?: return chain.proceed()
                     // 不依赖内部 stub 类名（ROM 间漂移：IPhoneStateListener / IPhoneStateListenerStub
                     // 等）：应用的覆写在回调具体类上必然可枚举；未覆写的交付走基类方法，
                     // 钩基类兜底（stub 内部经虚调用转回公开方法，同一交付点只拦一次）
@@ -94,7 +95,9 @@ class ClientTelephonyListenerHooks(private val module: XposedModule) {
                             }
                         }
                     }.onFailure { ProbeLog.log("CELL-SS-FAIL $it") }
-                    return registered
+                    // 原注册只执行一次；异常（含权限）原样传播。客户端钩身份进程级固定，
+                    // 无需登记/回滚实例状态
+                    return chain.proceed()
                 }
             })
     }
@@ -170,34 +173,70 @@ class ClientTelephonyListenerHooks(private val module: XposedModule) {
     }
 
     /**
-     * ServiceState：公开拷贝构造 + 公开 setter（setState(0)=IN_SERVICE、
-     * setOperatorName(long, short, numeric)、setRoaming(false)）。
-     * 注册态（IN_SERVICE/不漫游）归 CELL 域；运营商名/编号来自 SIM 配置，
-     * 仅在 SIM 域开启且有配置时覆盖，无配置保留真实值（不把名字/编号清空成空串）。
+     * ServiceState：白名单重建（审查八 #4）。不再 ServiceState(real) 拷贝——拷贝构造
+     * 会把真实运营商/网络注册信息（含真实 CellIdentity、数据/语音注册态）整体带入，
+     * 只改顶层字段必然留有真值残留。从空对象起，仅写入虚拟模型能提供的字段：
+     *  - 总注册态 IN_SERVICE、非漫游、语音/数据注册态与制式：跟随同一虚拟服务小区
+     *    （数据驻留 IWLAN / 双域注册不建模，文档化）；
+     *  - 运营商编号取服务小区 PLMN；名字仅在 SIM 配置提供时使用，否则以编号占位
+     *    （既不残留真实名，也不清成空串）；
+     *  - CellIdentity 用虚拟服务小区构造（清掉真实小区身份的关键一步）；
+     *  - 隐藏 setter 逐项反射写入，失败项 failOnce 留痕——ROM 适配不全时明确记录
+     *    未覆盖项，不得仍报告"完整伪装成功"。
      */
     private fun rewriteServiceState(real: ServiceState, pkg: String, uid: Int): ServiceState? {
         val eff = PolicyResolver.resolve(pkg, uid)
         if (!eff.domainEnabled(PolicyResolver.Domain.CELL)) return null
         val env = eff.environment ?: return null
         val serving = CellInfoFactory.pickServing(env.cells) ?: return null
-        val out = ServiceState(real) // 公开拷贝构造：保留真实网络能力字段
-        runCatching { out.setState(ServiceState.STATE_IN_SERVICE) }
-        runCatching { out.setRoaming(false) }
-        if (eff.domainEnabled(PolicyResolver.Domain.SIM) && eff.payload.sim.enabled) {
-            val slot = eff.payload.sim.slots.firstOrNull { it.active }
-            val alpha = slot?.carrierName?.takeIf { it.isNotBlank() }
-            val numeric = slot?.let { it.mcc + it.mnc }
-            if (!alpha.isNullOrEmpty() || !numeric.isNullOrEmpty()) {
-                runCatching { out.setOperatorName(alpha ?: "", alpha ?: "", numeric ?: "") }
-            }
+        val out = ServiceState()
+        val missed = ArrayList<String>()
+        runCatching { out.setState(ServiceState.STATE_IN_SERVICE) }.onFailure { missed.add("setState") }
+        runCatching { out.setRoaming(false) }.onFailure { missed.add("setRoaming") }
+        runCatching { out.setVoiceRegState(ServiceState.STATE_IN_SERVICE) }
+            .onFailure { missed.add("setVoiceRegState") }
+        runCatching { out.setDataRegState(ServiceState.STATE_IN_SERVICE) }
+            .onFailure { missed.add("setDataRegState") }
+        val netType = CellInfoFactory.ratTypeOf(serving.radioType)
+            ?.let { CellInfoFactory.networkTypeOf(it) }
+        if (netType != null) {
+            runCatching { out.setVoiceNetworkType(netType) }.onFailure { missed.add("setVoiceNetworkType") }
+            runCatching { out.setDataNetworkType(netType) }.onFailure { missed.add("setDataNetworkType") }
+        } else {
+            missed.add("networkType(${serving.radioType})")
         }
-        hit("ss", "svc rat=${serving.radioType}")
+        val numeric = serving.mcc + serving.mnc
+        val alpha = if (eff.domainEnabled(PolicyResolver.Domain.SIM) && eff.payload.sim.enabled) {
+            eff.payload.sim.slots.firstOrNull { it.active }?.carrierName?.takeIf { it.isNotBlank() }
+        } else null
+        runCatching { out.setOperatorName(alpha ?: numeric, alpha ?: numeric, numeric) }
+            .onFailure { missed.add("setOperatorName") }
+        val identity = CellInfoFactory.buildIdentity(serving)
+        if (identity != null) {
+            runCatching {
+                ServiceState::class.java
+                    .getDeclaredMethod("setCellIdentity", android.telephony.CellIdentity::class.java)
+                    .apply { isAccessible = true }
+                    .invoke(out, identity)
+            }.onFailure { missed.add("setCellIdentity") }
+        } else {
+            missed.add("cellIdentity-build")
+        }
+        if (missed.isNotEmpty()) {
+            failOnce("ss-fields", "CELL-SS ServiceState 未覆盖字段: ${missed.joinToString(",")}")
+        }
+        hit("ss", "svc rat=${serving.radioType} missed=${missed.size}")
         return out
     }
 
     /**
-     * SignalStrength：公开拷贝构造 + 按服务小区制式替换 mSignals 数组内同型分量。
-     * 数组字段经类型发现（CellSignalStrength[]），类型不匹配的元素保持真实。
+     * SignalStrength：公开拷贝构造 + 按服务小区制式替换对应分量。
+     * ROM 字段形态差异大，按序尝试三种形态（命中即止，失败透传真实值）：
+     *  1. 按制式命名的独立字段（OPLUS Android 16 实机 dex 实证：mGsm/mLte/mNr/
+     *     mTdscdma/mWcdma 各自持有 CellSignalStrength 子类，无数组）；
+     *  2. AOSP R+ 数组形态 CellSignalStrength[]（mSignals）；
+     *  3. List 集合形态（部分 ROM 变体）。
+     * 每种形态的查找/写入结果均有 failOnce 日志，便于核对 ROM 差异。
      */
     private fun rewriteSignalStrength(real: SignalStrength, pkg: String, uid: Int): SignalStrength? {
         val eff = PolicyResolver.resolve(pkg, uid)
@@ -207,35 +246,89 @@ class ClientTelephonyListenerHooks(private val module: XposedModule) {
         val rat = CellInfoFactory.ratTypeOf(serving.radioType) ?: return null
         val sig = CellInfoFactory.buildSignalStrength(rat, serving.signalDbm) ?: return null
         val out = SignalStrength(real)
-        // 全层级遍历找 CellSignalStrength[]（实机日志显示部分 ROM 的字段不落在
-        // 前 4 层声明里）；找不到记一次日志后透传真实值
-        val arrField = generateSequence<Class<*>>(out.javaClass) { it.superclass }
+
+        // 形态 1：按制式命名字段（工程机 dex 实证的结构，首选）
+        val namedField = mapOf(
+            CellInfoFactory.Rat.GSM to "mGsm",
+            CellInfoFactory.Rat.WCDMA to "mWcdma",
+            CellInfoFactory.Rat.TDSCDMA to "mTdscdma",
+            CellInfoFactory.Rat.LTE to "mLte",
+            CellInfoFactory.Rat.NR to "mNr",
+        )[rat]
+        if (namedField != null && writeMatchingField(out, namedField, sig)) {
+            hit("ss", "sig named=$namedField rat=${rat.name} dbm=${serving.signalDbm}")
+            return out
+        }
+
+        // 形态 2：AOSP R+ 数组 mSignals
+        val arrField = findField(out.javaClass) {
+            it.type.isArray && it.type.componentType.name.endsWith("CellSignalStrength")
+        }
+        if (arrField != null) {
+            arrField.isAccessible = true
+            @Suppress("UNCHECKED_CAST")
+            val arr = arrField.get(out) as? Array<Any>
+            if (arr != null) {
+                for (i in arr.indices) {
+                    if (arr[i].javaClass.name.substringAfterLast('.') ==
+                        sig.javaClass.name.substringAfterLast('.')
+                    ) {
+                        arr[i] = sig
+                        hit("ss", "sig array[$i] rat=${rat.name} dbm=${serving.signalDbm}")
+                        return out
+                    }
+                }
+                failOnce("ss-rat", "CELL-SS array has no ${sig.javaClass.simpleName} component")
+            }
+        }
+
+        // 形态 3：List 集合形态（可变性不假设，整体替换为新 List）
+        val listField = findField(out.javaClass) {
+            val tn = it.type.name
+            (tn == "java.util.List" || tn == "java.util.Collection") ||
+                (tn.contains("CellSignalStrength") && !it.type.isArray)
+        }
+        if (listField != null) {
+            listField.isAccessible = true
+            val raw = listField.get(out)
+            if (raw is List<*>) {
+                val newList = raw.map { el ->
+                    if (el != null && el.javaClass.name.substringAfterLast('.') ==
+                        sig.javaClass.name.substringAfterLast('.')
+                    ) sig else el
+                }
+                if (newList != raw) {
+                    runCatching { listField.set(out, newList) }
+                        .onSuccess {
+                            hit("ss", "sig list rat=${rat.name} dbm=${serving.signalDbm}")
+                            return out
+                        }
+                }
+            }
+        }
+
+        failOnce("ss-shape", "CELL-SS no known component shape (named=$namedField) rat=${rat.name}")
+        return null
+    }
+
+    /** 沿父类链找满足 [pred] 的第一个声明字段 */
+    private fun findField(cls: Class<*>, pred: (java.lang.reflect.Field) -> Boolean): java.lang.reflect.Field? =
+        generateSequence<Class<*>>(cls) { it.superclass }
             .takeWhile { it != Any::class.java }
             .flatMap { it.declaredFields.toList() }
-            .firstOrNull { it.type.isArray && it.type.componentType.name.endsWith("CellSignalStrength") }
-            ?: run {
-                failOnce("ss-array", "CELL-SS mSignals field not found")
-                return null
-            }
-        arrField.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        val arr = arrField.get(out) as? Array<Any> ?: return null
-        var replaced = false
-        for (i in arr.indices) {
-            // 同制式分量替换（基类名前缀相同，如 CellSignalStrengthLte）
-            if (arr[i].javaClass.name.substringAfterLast('.') ==
-                sig.javaClass.name.substringAfterLast('.')
-            ) {
-                arr[i] = sig
-                replaced = true
-            }
+            .firstOrNull(pred)
+
+    /** 按名定位字段并写入（要求字段类型兼容 [value]）；成功 true */
+    private fun writeMatchingField(target: Any, name: String, value: Any): Boolean {
+        val f = findField(target.javaClass) { it.name == name } ?: return false
+        if (!f.type.isInstance(value)) return false
+        return try {
+            f.isAccessible = true
+            f.set(target, value)
+            true
+        } catch (_: Throwable) {
+            false
         }
-        if (!replaced) {
-            failOnce("ss-rat", "CELL-SS no matching component rat=${rat.name}")
-            return null
-        }
-        hit("ss", "sig rat=${rat.name} dbm=${serving.signalDbm}")
-        return out
     }
 
     private fun sig(m: Method): String =

@@ -102,9 +102,10 @@ class ClientBluetoothHooks(private val module: XposedModule) {
                 module.hook(m).setId("ven11.bt.le.start/${m.parameterTypes.size}")
                     .intercept(object : XposedInterface.Hooker {
                         override fun intercept(chain: XposedInterface.Chain): Any? {
-                            val registered = chain.proceed()
+                            // 先装钩后注册（审查八 #3）：注册路径可能在返回前就同步交付
+                            // 首条扫描结果（缓存/高占空比 beacon）；回调识别只用 chain.args
                             val cb = chain.args.firstOrNull { cbBase.isInstance(it) }
-                                ?: return registered
+                                ?: return chain.proceed()
                             runCatching {
                                 dev.ven11.module.hook.util.CallbackHooks.install(
                                     module, "BT-LE", cb, null,
@@ -127,7 +128,8 @@ class ClientBluetoothHooks(private val module: XposedModule) {
                                     }
                                 }
                             }.onFailure { dev.ven11.module.ProbeLog.log("BT-LE-FAIL $it") }
-                            return registered
+                            // 原注册只执行一次，异常原样传播；客户端钩身份进程级固定
+                            return chain.proceed()
                         }
                     })
             }.onSuccess { n++ }.onFailure {

@@ -1,0 +1,3 @@
+10-03 01:46:27.389  8896 21080 E dexdump.exe: mem_map_windows.cc:96 Couldn't get file size.: Bad file descriptor
+10-03 01:46:27.389  8896 21080 E dexdump.exe: dexdump.cc:2012 Failed to extract 'classes.dex' from 'D:\111\log\fw.jar': Failed anonymous mmap(00000000, 9904128, 0x3, 0x22, -1, 0): Invalid argument. See process maps in the log.
+Processing 'D:\111\log\fw.jar'...

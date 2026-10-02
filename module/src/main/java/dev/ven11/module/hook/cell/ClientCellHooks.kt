@@ -78,8 +78,9 @@ class ClientCellHooks(private val module: XposedModule) {
         module.hook(m).setId("ven11.cell.reqcb/${m.parameterTypes.size}")
             .intercept(object : XposedInterface.Hooker {
                 override fun intercept(chain: XposedInterface.Chain): Any? {
-                    val registered = chain.proceed()
-                    val cb = chain.args.lastOrNull() ?: return registered
+                    // 先装钩后注册（审查八 #3）：注册路径可能同步回第一条缓存结果；
+                    // 回调识别只用 chain.args，无需先 proceed
+                    val cb = chain.args.lastOrNull() ?: return chain.proceed()
                     runCatching {
                         CallbackHooks.install(
                             module, "CELL-CB", cb, null,
@@ -93,7 +94,8 @@ class ClientCellHooks(private val module: XposedModule) {
                             chain.proceed(newArgs)
                         }
                     }.onFailure { ProbeLog.log("CELL-CB-FAIL $it") }
-                    return registered
+                    // 原注册只执行一次，异常原样传播；客户端钩身份进程级固定
+                    return chain.proceed()
                 }
             })
     }

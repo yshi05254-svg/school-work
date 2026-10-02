@@ -88,11 +88,12 @@ class ClientConnectivityHooks(private val module: XposedModule) {
     private fun installRegister(m: Method, pkg: String, uid: Int, cbBase: Class<*>?) {
         module.hook(m).setId("ven11.conn.reg.${sig(m)}").intercept(object : XposedInterface.Hooker {
             override fun intercept(chain: XposedInterface.Chain): Any? {
-                val registered = chain.proceed()
+                // 先装钩后注册（审查八 #3）：系统可能在注册调用内同步回第一条
+                // onCapabilitiesChanged（缓存网络命中时）；回调识别只用 chain.args
                 val cb = chain.args.firstOrNull { arg ->
                     cbBase?.isInstance(arg) == true ||
                         arg.javaClass.name.contains("NetworkCallback")
-                } ?: return registered
+                } ?: return chain.proceed()
                 runCatching {
                     CallbackHooks.install(
                         module, "CONN-CB", cb, null,
@@ -109,7 +110,8 @@ class ClientConnectivityHooks(private val module: XposedModule) {
                         chain.proceed(newArgs)
                     }
                 }.onFailure { ProbeLog.log("CONN-CB-FAIL $it") }
-                return registered
+                // 原注册只执行一次，异常原样传播；客户端钩身份进程级固定
+                return chain.proceed()
             }
         })
     }

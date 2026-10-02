@@ -85,11 +85,12 @@ class ClientCellHooks(private val module: XposedModule) {
                             module, "CELL-CB", cb, null,
                             methodNames = setOf("onCellInfo"),
                         ) { chain, _ ->
-                            val args = chain.args
-                            val real = args.firstOrNull() as? List<*> ?: return@install chain.proceed()
-                            args[0] = runCatching { cellListFor(real, pkg, uid) }
+                            // API 102 的 chain.args 不可变：复制数组后改写再 proceed
+                            val newArgs = chain.args.toTypedArray()
+                            val real = newArgs.firstOrNull() as? List<*> ?: return@install chain.proceed()
+                            newArgs[0] = runCatching { cellListFor(real, pkg, uid) }
                                 .getOrDefault(real)
-                            chain.proceed(args.toTypedArray())
+                            chain.proceed(newArgs)
                         }
                     }.onFailure { ProbeLog.log("CELL-CB-FAIL $it") }
                     return registered

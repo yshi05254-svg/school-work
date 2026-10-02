@@ -1,5 +1,6 @@
 package dev.ven11.module.model
 
+import dev.ven11.module.ProbeLog
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -10,8 +11,8 @@ import org.json.JSONObject
  * 策略字段命名统一（评审一.4）：
  *  - 单数 `policy`，弃用 `policies`（蓝牙钩原误用）；
  *  - 严格模式统一 `strictMode`，弃用 GPS 钩原 `strictIsolation`；
- *    可空 Boolean：GPS 侧 `== true` 才拦截（默认宽松），蓝牙侧 `?: true`（默认严格），
- *    两侧原有语义各自保留。
+ *    可空 Boolean：`== true` 才走隔离语义，缺省统一为兼容模式（透传真实值）——
+ *    蓝牙侧此前缺省严格，默认配置下会把已配对设备清空、BLE 扫描全屏蔽（审查五）。
  *  - 总开关 / 排除名单 / 策略级域开关统一收敛到 PolicyResolver.domainEnabled()。
  */
 data class Snapshot(
@@ -103,7 +104,14 @@ object SnapshotParser {
                 GpsJitter(it.optBoolean("enabled"), it.optDouble("amplitudeMeters", 0.0))
             } ?: GpsJitter(),
             sim = root.optJSONObject("sim")?.let(::simSnapshot) ?: SimSnapshot(),
-            environments = root.optJSONArray("environments")?.mapObj(::environment).orEmpty(),
+            // 缺 lat/lon 的环境 optDouble 会得到 NaN：坐标非法的环境整条剔除（回落实侧
+            // 真实值的安全侧），避免 LocationFactory 产出 NaN 定位让应用崩溃或行为未定义
+            environments = root.optJSONArray("environments")?.mapObj(::environment).orEmpty()
+                .filter { e -> e.lat.isFinite() && e.lon.isFinite() }
+                .also { list ->
+                    val raw = root.optJSONArray("environments")?.length() ?: 0
+                    if (raw > list.size) ProbeLog.log("SNAP env dropped: 非法 lat/lon（缺字段或非数值）")
+                },
             policies = root.optJSONArray("policies")?.mapObj(::policy).orEmpty(),
             routes = root.optJSONArray("routes")
                 ?.mapObj(::route)

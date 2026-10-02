@@ -1,0 +1,3 @@
+targetApiVersion=102
+minApiVersion=102
+description=ven11 virtual environment (location/cell/wifi/sim/bluetooth/language/timezone)

@@ -155,12 +155,20 @@ class ClientLanguageHooks(private val module: XposedModule) {
                         currentLocale() // 冷路径，顺带驱动热更新
                         val list = overrideList ?: return chain.proceed()
                         val cfg = chain.getArg(0) as? Configuration ?: return chain.proceed()
+                        // 克隆后再改写（审查五）：传入的 Configuration 可能是框架共享
+                        // 对象，原地 setLocales 会污染调用方状态且策略撤销后无法还原；
+                        // 每次基于真实 config 现算克隆副本，策略撤销后自然回归真实值
+                        val copy = Configuration()
+                        copy.setTo(cfg)
                         try {
-                            cfg.setLocales(list) // proceed 内 AssetManager.setConfiguration 随之拿到目标 locale
+                            copy.setLocales(list) // 克隆副本流经 AssetManager.setConfiguration
                         } catch (e: Throwable) {
                             ProbeLog.log("LANG-HOOK-FAIL $id.setLocales: $e")
+                            return chain.proceed()
                         }
-                        return chain.proceed()
+                        val newArgs = chain.args.toTypedArray()
+                        newArgs[0] = copy
+                        return chain.proceed(newArgs)
                     }
                 })
             }
@@ -266,22 +274,22 @@ class ClientLanguageHooks(private val module: XposedModule) {
 
     /**
      * 热路径入口：节流重读策略快照（≤1 次/秒，对齐 SnapshotStore 轮询），其余调用只付
-     * 一次时钟读 + volatile 读的代价；refreshing/restoring 防重入（resolve 过程中再进
-     * 任意被钩方法时直接返回当前值）。
+     * 一次时钟读 + volatile 读的代价；refreshing（CAS，审查五：此前普通 Boolean 存在
+     * 并发重入窗口）/restoring 防重入（resolve 过程中再进任意被钩方法时直接返回当前值）。
      */
     private fun currentLocale(): Locale? {
-        if (refreshing || restoring) return overrideLocale
+        if (restoring) return overrideLocale
         val now = SystemClock.elapsedRealtime()
         if (now - lastResolveAt < RESOLVE_INTERVAL_MS) return overrideLocale
+        if (!refreshing.compareAndSet(false, true)) return overrideLocale
         lastResolveAt = now
-        refreshing = true
         return try {
             refresh()
         } catch (e: Throwable) {
             ProbeLog.log("LANG-HOOK-FAIL refresh: $e")
             overrideLocale
         } finally {
-            refreshing = false
+            refreshing.set(false)
         }
     }
 
@@ -290,14 +298,14 @@ class ClientLanguageHooks(private val module: XposedModule) {
      * 策略从无到有 / 域开关 / 排除名单变化在此立即生效，不等下一次被钩调用。
      */
     private fun forceRefresh() {
-        if (refreshing || restoring) return
-        refreshing = true
+        if (restoring) return
+        if (!refreshing.compareAndSet(false, true)) return
         try {
             refresh()
         } catch (e: Throwable) {
             ProbeLog.log("LANG-HOOK-FAIL forceRefresh: $e")
         } finally {
-            refreshing = false
+            refreshing.set(false)
         }
     }
 
@@ -361,7 +369,7 @@ class ClientLanguageHooks(private val module: XposedModule) {
         @Volatile private var realUserRegion: String? = null
 
         @Volatile private var restoring = false
-        @Volatile private var refreshing = false
+        private val refreshing = java.util.concurrent.atomic.AtomicBoolean(false)
         @Volatile private var lastResolveAt = 0L
 
         // android.icu.util.ULocale 反射句柄（ICU locale id ≠ BCP 47 tag，必须走 forLocale）

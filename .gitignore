@@ -11,3 +11,6 @@ build/
 # 本地配置（含本机 SDK 路径）
 local.properties
 
+# 日志与设备抓取物（logcat、设备数据库、抓包、临时脚本）
+/log/fwx/
+

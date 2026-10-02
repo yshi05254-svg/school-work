@@ -63,10 +63,16 @@ object SystemServiceBridge {
                                     return@runCatching
                                 }
                                 val svcCl = svc.javaClass.classLoader ?: return@runCatching
-                                val n = FrameworkWifiHooks.install(module, svcCl)
-                                module.log(Log.INFO, "VEN11",
-                                    "framework wifi hooks deferred-installed=$n from service jar " +
-                                        "(cl=${svcCl.javaClass.name})")
+                                // 结果分级（审查八 #7）：成功记一次；已装过静默；
+                                // service jar 里仍缺类是真问题，保留 WARN
+                                when (val n = FrameworkWifiHooks.install(module, svcCl)) {
+                                    -1 -> Unit
+                                    0 -> module.log(Log.WARN, "VEN11",
+                                        "FW-WIFI service jar loader 仍找不到 WifiServiceImpl")
+                                    else -> module.log(Log.INFO, "VEN11",
+                                        "framework wifi hooks deferred-installed=$n from service jar " +
+                                            "(cl=${svcCl.javaClass.name})")
+                                }
                             }.onFailure {
                                 ProbeLog.log("FW-WIFI-DEFER-ERR ${it.javaClass.simpleName}: ${it.message}")
                             }
@@ -97,10 +103,21 @@ object FrameworkWifiHooks {
     /** 立即路径与 startServiceFromJar 延迟路径都会调 install：进程内只装一次 */
     private val installed = java.util.concurrent.atomic.AtomicBoolean(false)
 
+    /** "主 classloader 没有实现类"的兼容提示只记一次（S+ 上这是预期状态） */
+    private val classMissOnce = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /**
+     * 返回值区分结果（审查八 #7）：>0 本次安装成功；0 目标类缺失（兼容性提示）；
+     * -1 已安装过（重复进入，调用方静默）；装钩异常由调用方 runCatching 记录原因。
+     */
     fun install(module: XposedModule, cl: ClassLoader): Int {
         val implClass = loadServiceImpl(cl)
         if (implClass == null) {
-            ProbeLog.log("FW-WIFI WifiServiceImpl not found in candidate classloaders")
+            if (classMissOnce.compareAndSet(false, true)) {
+                ProbeLog.log("FW-WIFI WifiServiceImpl not found in candidate classloaders")
+                module.log(Log.INFO, "VEN11",
+                    "FW-WIFI WifiServiceImpl not in main classloader (S+: 待 startServiceFromJar 延迟路径)")
+            }
             return 0
         }
         return hookImplClass(module, implClass)
@@ -109,7 +126,7 @@ object FrameworkWifiHooks {
     private fun hookImplClass(module: XposedModule, implClass: Class<*>): Int {
         // CAS 在装钩前取位：implClass 已定位到，后续 hook 失败属 ROM 异常，
         // 不为此保留重试（避免延迟路径重复装钩）
-        if (!installed.compareAndSet(false, true)) return 0
+        if (!installed.compareAndSet(false, true)) return -1
         var n = 0
         for (m in implClass.declaredMethods) {
             when (m.name) {

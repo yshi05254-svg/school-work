@@ -44,6 +44,9 @@ object SnapshotStore {
 
     private val pollLock = Any()
 
+    /** 上次读取时的文件戳 (lastModified, length)；缺失/不可读记 (-1, -1)。不变则不重读重解析 */
+    private var lastStamp: Pair<Long, Long> = -1L to -1L
+
     fun current(): Snapshot {
         val now = SystemClock.elapsedRealtime()
         if (now - lastPollAtMs < POLL_INTERVAL_MS) return current
@@ -95,12 +98,24 @@ object SnapshotStore {
         }
     }
 
-    private fun readSnapshot(): Snapshot = try {
+    /**
+     * 文件戳（mtime + size）未变时直接返回 current：快照轮询是所有进程每秒一次的
+     * 常驻开销，此前每个节流周期都 readText + 全量 JSON 解析（且可能落在 UI 线程或
+     * system_server 的 binder 线程上）。mtime 毫秒 + 长度双重比对，写入端
+     * （SnapshotPublisher）走 tmp+mv 原子替换，mtime 必变，不会漏读。
+     */
+    private fun readSnapshot(): Snapshot {
         val f = File(SNAPSHOT_PATH)
-        if (!f.isFile || !f.canRead()) Snapshot.EMPTY
-        else SnapshotParser.parse(f.readText())
-    } catch (t: Throwable) {
-        ProbeLog.log("SNAP-ERR read: ${t.javaClass.simpleName}: ${t.message}")
-        Snapshot.EMPTY
+        val stamp = if (f.isFile && f.canRead()) f.lastModified() to f.length() else -1L to -1L
+        if (stamp == lastStamp) return current
+        val next = try {
+            if (stamp.first == -1L) Snapshot.EMPTY
+            else SnapshotParser.parse(f.readText())
+        } catch (t: Throwable) {
+            ProbeLog.log("SNAP-ERR read: ${t.javaClass.simpleName}: ${t.message}")
+            Snapshot.EMPTY
+        }
+        lastStamp = stamp
+        return next
     }
 }

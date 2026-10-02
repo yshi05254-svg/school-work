@@ -32,11 +32,22 @@ object SnapshotPublisher {
 
     data class Result(val ok: Boolean, val via: String, val message: String)
 
-    /** 写缓存 → su 拷贝 → chmod；任一步失败即返回失败结果（带可读原因） */
+    /**
+     * 写缓存 → su 拷贝到同目录临时文件 → chmod → mv 原子替换；任一步失败即返回失败
+     * 结果（带可读原因）。此前直接 cp 覆盖目标文件：目标进程可能读到写了一半的 JSON，
+     * 解析失败回落 EMPTY，语言/时区跟着闪一次（审查五）；tmp + mv 是同目录 rename，
+     * 对读方原子。轮询侧另有 mtime+size 缓存，mv 必然更新 mtime，不会漏读。
+     */
     fun publish(context: Context, json: String): Result {
-        val cache = File(context.cacheDir, "ven11-snapshot.json").apply { writeText(json) }
-        val cmd = "mkdir -p $SNAPSHOT_DIR && cp '${cache.absolutePath}' $SNAPSHOT_PATH " +
-            "&& chmod 644 $SNAPSHOT_PATH && chmod 771 $SNAPSHOT_DIR"
+        val cache = File(context.cacheDir, "ven11-snapshot.json.tmp").apply { writeText(json) }
+        val backup = File(context.cacheDir, "ven11-snapshot.json")
+        if (backup.exists()) backup.delete()
+        if (!cache.renameTo(backup)) {
+            return Result(false, "local", "缓存文件重命名失败（${cache.absolutePath}）")
+        }
+        val tmp = "$SNAPSHOT_PATH.tmp"
+        val cmd = "mkdir -p $SNAPSHOT_DIR && cp '${backup.absolutePath}' '$tmp' " +
+            "&& chmod 644 '$tmp' && mv -f '$tmp' '$SNAPSHOT_PATH' && chmod 771 $SNAPSHOT_DIR"
         return try {
             val proc = ProcessBuilder("su", "-c", cmd)
                 .redirectErrorStream(true)
@@ -65,13 +76,18 @@ object SnapshotPublisher {
 
     /**
      * 由管理端当前表单构造快照 JSON（schema 见 module 侧 SnapshotParser）。
-     * 当前 UI 仍为通用模板（评审一.3 遗留），此处用表单值 + 固定演示策略构成
-     * 最小闭环：masterEnabled / 目标包 / 静态环境（经纬度、Wi-Fi、基站、SIM）。
-     * UI 改造成真配置页后，本函数替换为从真实字段构造。
+     * 目标包名一栏发**精确策略**（每包一条）：此前写死 com.example.target——那个包
+     * 不存在，所有钩子的 PolicyResolver 都解析不到策略，全部透传真实值（审查五）。
+     * 不要用 pkg=null 的全局策略兜底：全局策略会命中 phone/system_server 框架钩的
+     * 所有调用方，作用范围远超 LSPosed 作用域。
      */
-    fun buildDraftJson(targetPkg: String, lat: Double, lon: Double): String = """
+    fun buildDraftJson(targetPackages: List<String>, lat: Double, lon: Double): String {
+        val policies = targetPackages.joinToString(",\n        ") { pkg ->
+            """{"pkg": "$pkg", "environmentId": 1}"""
+        }
+        return """
     {
-      "configVersion": ${System.currentTimeMillis() / 1000},
+      "configVersion": ${System.currentTimeMillis()},
       "masterEnabled": true,
       "excludedPackages": [],
       "excludedUids": [],
@@ -96,9 +112,10 @@ object SnapshotPublisher {
         }
       ],
       "policies": [
-        {"pkg": "$targetPkg", "environmentId": 1}
+        $policies
       ],
       "routes": []
     }
-    """.trimIndent()
+        """.trimIndent()
+    }
 }

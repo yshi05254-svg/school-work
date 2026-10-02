@@ -8,4 +8,8 @@ build/
 *.iml
 
 # 本地配置
-local.properties
+local.properties# Kotlin 编译器本地错误转储
+.kotlin/
+
+# 日志与设备抓取物
+log/

@@ -23,8 +23,10 @@ import java.lang.reflect.Method
  *   mSubId，再回落默认（首个激活）卡（#6）。
  * - 非激活卡槽按"无卡"处理：SIM_STATE_ABSENT / hasIccCard=false / 标识类返回 null（#7）。
  * - PLMN = mcc + mnc 原样拼接，不做补零；位数由配置保证（#5）。
- * - 网络侧（getNetworkOperator* / getNetworkCountryIso*）归 VirtualCell 域，此处不 hook，
- *   由 Cell 域负责或以 SIM 配置作默认值，避免两域重复 hook 导致结果取决于注册顺序（#17）。
+ * - 网络侧出口（getNetworkOperator* / getNetworkType 等）在本类 hook，但门控跟随
+ *   CELL 域（取值优先服务小区）；SIM 配置仅在 sim.enabled 时作回落源（审查五）。
+ * - getDefault*SubscriptionId：真机存在默认订阅时透传真实 subId（避免虚拟 id 流入
+ *   短信/数据等框架内部通路弄坏功能），仅真机无默认订阅时注入虚拟值保持一致。
  */
 class ClientSimHooks(private val module: XposedModule) {
 
@@ -152,11 +154,26 @@ class ClientSimHooks(private val module: XposedModule) {
 
     private fun decideTm(chain: XposedInterface.Chain, m: Method, e: MEntry, pkg: String, uid: Int): Decided {
         val eff = PolicyResolver.resolve(pkg, uid)
-        if (!eff.domainEnabled(PolicyResolver.Domain.SIM)) return Decided.Origin
         val sim = eff.payload.sim
-        if (!sim.enabled || sim.slots.isEmpty()) return Decided.Origin
+        // 门控分离（审查五 #157）：SIM 身份类出口 = SIM 域开关；网络侧出口
+        // （netop/netopName/netCountry/netType）跟随伪装基站走 CELL 域门控——
+        // 默认下发配置 sim.enabled=false 且基站已伪装时，若网络侧仍挂在 SIM 门下，
+        // 会出现"基站 46000 而 getNetworkOperator/getNetworkType 返回真实值"的矛盾。
+        // 两域都未启用时才整体透传；无对应虚拟数据的目标仍各自回落 Origin。
+        val simOn = eff.domainEnabled(PolicyResolver.Domain.SIM) && sim.enabled && sim.slots.isNotEmpty()
+        val cellOn = eff.domainEnabled(PolicyResolver.Domain.CELL) &&
+            !eff.environment?.cells.isNullOrEmpty()
+        val isNetTarget = when (e.target) {
+            "netop", "netopName", "netCountry", "netType" -> true
+            else -> false
+        }
+        if (isNetTarget) {
+            if (!simOn && !cellOn) return Decided.Origin
+        } else if (!simOn) {
+            return Decided.Origin
+        }
         val rt = m.returnType
-        val slot = resolveSlot(chain, sim, e.kind)
+        val slot = if (simOn) resolveSlot(chain, sim, e.kind) else null
         val a = slot?.takeIf { it.active }          // 非激活卡槽按"无卡"处理（#7）
         return when (e.target) {
             "identity" -> replaceIfAllowed(chain, rt) { a?.let { deriveImei(it) } }
@@ -177,7 +194,8 @@ class ClientSimHooks(private val module: XposedModule) {
             "modemCount" -> direct(sim.slots.size, rt)
             "mcc" -> direct(a?.mcc?.ifEmpty { null }, rt)
             "mnc" -> direct(a?.mnc?.ifEmpty { null }, rt)
-            // ---- 网络侧出口（3a）：proceed-first；无虚拟数据时 Origin 保持真实
+            // ---- 网络侧出口（3a）：proceed-first；无虚拟数据时 Origin 保持真实。
+            // ---- 取值优先服务小区（Cell 域环境）；SIM 侧数据仅在 simOn 时作为回落源
             "netop" -> netValue(chain, rt) {
                 servingCell(eff)?.let { it.mcc + it.mnc } ?: a?.let { plmnOf(it) }
             }
@@ -276,7 +294,7 @@ class ClientSimHooks(private val module: XposedModule) {
             }
             // ---- 非权限出口：静态工具 / 计数上限，直接替换
             "countMax" -> direct(sim.slots.size, rt)
-            "defaultId" -> direct(infos.firstOrNull()?.first?.subId ?: INVALID_SUBSCRIPTION_ID, rt)
+            "defaultId" -> defaultSubId(chain, rt, infos)
             "slotOfSub" -> direct(sim.slots.firstOrNull { it.subId == arg }?.slotIndex ?: -1, rt)
             "subsOfSlot" -> Decided.Value(infos.firstOrNull { it.first.slotIndex == arg }?.let { intArrayOf(it.first.subId) })
             else -> Decided.Origin
@@ -448,6 +466,39 @@ class ClientSimHooks(private val module: XposedModule) {
     /* ============ 卡槽解析（#6） ============ */
 
     /**
+     * getDefault*SubscriptionId（审查五 #244）：先 proceed——真机已有默认订阅
+     * （返回 ≥0）时透传真实 subId：应用进程内的框架代码（短信/数据等通路）会拿
+     * 这个 id 直接走 binder，虚拟 id 在系统侧查无订阅，会把功能弄坏；真机无默认
+     * 订阅（INVALID）时才注入虚拟 subId，与虚拟订阅列表保持一致。
+     * proceed 之后不允许返回 Origin（dispatch 对 Origin 会二次 proceed，#2）。
+     */
+    private fun defaultSubId(
+        chain: XposedInterface.Chain,
+        rt: Class<*>,
+        infos: List<Pair<VirtualSimSlot, SubscriptionInfo>>,
+    ): Decided {
+        val virtual = infos.firstOrNull()?.first?.subId ?: INVALID_SUBSCRIPTION_ID
+        val origin = try {
+            chain.proceed()
+        } catch (se: SecurityException) {
+            return Decided.Rethrow(se)
+        } catch (_: Throwable) {
+            return Decided.Value(coerceToSubId(virtual, rt))
+        }
+        return if (origin is Int && origin >= 0) {
+            Decided.Value(coerceToSubId(origin, rt))
+        } else {
+            Decided.Value(coerceToSubId(virtual, rt))
+        }
+    }
+
+    /** defaultId 出口返回类型恒为 Int；coerce 只为防 ROM 差异，不符即回落虚拟/真实值本身 */
+    private fun coerceToSubId(v: Any?, rt: Class<*>): Any? {
+        val c = coerce(v, rt)
+        return if (c === MISS) v else c
+    }
+
+    /**
      * SLOT=slotIndex 型（getImei/getDeviceId/getSimState...）、SUB_ID=subscriptionId 型
      * （getSubscriberId/getLine1Number/getSimOperator 隐藏重载...）。
      * 无参时读 createForSubscriptionId 实例的 subId，再回落默认（首个激活）卡。
@@ -495,7 +546,10 @@ class ClientSimHooks(private val module: XposedModule) {
      *  统一补 Luhn 校验位——不再出现固定且校验位错误的兜底值（#10） */
     private fun deriveImei(slot: VirtualSimSlot): String {
         val base = slot.imeiBase.filter { it.isDigit() }.takeIf { it.length >= 14 }?.take(14)
-            ?: ("86000000" + "%06d".format(((slot.subId.toLong() and 0xFFFFFFF) % 1_000_000).toInt()))
+            ?: ("86000000" + String.format(
+                java.util.Locale.ROOT, "%06d",
+                ((slot.subId.toLong() and 0xFFFFFFF) % 1_000_000).toInt(),
+            ))
         return base + luhnCheckDigit(base)
     }
 

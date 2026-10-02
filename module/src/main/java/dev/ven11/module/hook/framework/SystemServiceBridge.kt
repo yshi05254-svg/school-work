@@ -51,12 +51,58 @@ object FrameworkWifiHooks {
         }
         var n = 0
         for (m in implClass.declaredMethods) {
-            if (m.name != "getScanResults") continue
-            hookScan(module, m)
-            n++
+            when {
+                m.name == "getScanResults" -> {
+                    hookScan(module, m); n++
+                }
+                // 覆盖域扩展 5b：框架侧连接信息改写（与客户端同语义）
+                m.name == "getConnectionInfo" -> {
+                    hookConnectionInfo(module, m); n++
+                }
+            }
         }
         module.log(Log.INFO, "VEN11", "framework wifi hooks installed=$n")
         return n
+    }
+
+    /**
+     * WifiServiceImpl.getConnectionInfo（覆盖域扩展 5b）：与客户端 ClientWifiHooks
+     * 同一语义——真实结果已脱敏/未连接时透传；有可见权限视角且已连接时改写
+     * mWifiSsid/mBSSID/mRssi/mFrequency。WifiServiceImpl 内部对象可能被框架
+     * 缓存共享，改写前经 WifiInfo 反射拷贝（隐藏拷贝构造不可用时放弃改写，安全侧）。
+     */
+    private fun hookConnectionInfo(module: XposedModule, m: Method) {
+        module.hook(m).setId("ven11.fwwifi.conn/${m.parameterTypes.size}")
+            .intercept(object : XposedInterface.Hooker {
+                override fun intercept(chain: XposedInterface.Chain): Any? {
+                    val callingUid = Binder.getCallingUid()
+                    val callingPid = Binder.getCallingPid()
+                    val real = chain.proceed()
+                    return runCatching { spoofConn(m, callingPid, callingUid, real) }
+                        .getOrElse { real }
+                }
+            })
+    }
+
+    private fun spoofConn(m: Method, pid: Int, uid: Int, real: Any?): Any? {
+        if (uid % Ven11Module.PER_USER_RANGE < Process.FIRST_APPLICATION_UID) return real
+        val info = real as? android.net.wifi.WifiInfo ?: return real
+        if (dev.ven11.module.hook.wifi.WifiInfoSpoofer.isRedacted(info)) return real
+        if (!dev.ven11.module.hook.wifi.WifiInfoSpoofer.isConnected(info)) return real
+        // 同进程共享对象：改写共享 WifiInfo 会污染系统缓存，构造私有副本
+        val copy = runCatching {
+            val ctor = info.javaClass.declaredConstructors.firstOrNull {
+                it.parameterTypes.size == 1 && it.parameterTypes[0] == info.javaClass
+            }?.apply { isAccessible = true }
+            ctor?.newInstance(info) as? android.net.wifi.WifiInfo
+        }.getOrNull() ?: return real
+        val pkg = UidResolver.pkgOfUid(uid) ?: return real
+        val eff = PolicyResolver.resolve(pkg, uid)
+        if (!eff.domainEnabled(PolicyResolver.Domain.WIFI)) return real
+        val env = eff.environment ?: return real
+        val w = env.wifis.firstOrNull() ?: return real
+        ProbeLog.log("FW-WIFI-CONN ssid=${w.ssid}")
+        return dev.ven11.module.hook.wifi.WifiInfoSpoofer.spoof(copy, w)
     }
 
     /**

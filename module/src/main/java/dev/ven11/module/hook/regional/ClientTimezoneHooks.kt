@@ -49,6 +49,10 @@ import java.util.TimeZone
  *     __system_property_get）；应尽早安装，赶在应用首次 native 时间调用之前；
  *  4. System.setProperty("user.timezone", tzId)：兼容直接读该属性的第三方库。
  *
+ * apply/revert 统一在主线程执行（轮询/回调线程经 Handler post，装钩本就在主线程）：
+ * Os.setenv 与 native 线程的 getenv/localtime 并发在 bionic 上不安全（审查五），
+ * 除收口到主线程外，值不变时刷新是 no-op，setenv 仅在真实切换时发生一次。
+ *
  * ID 校验：必须命中 TimeZone.getAvailableIDs()。ZoneId.of() 接受的 "+08:00"、
  * "UTC+8"、"Z" 等写法会导致 getTimeZone 静默回退 GMT / ICU 返回 Etc/Unknown /
  * 属性原样返回非法 ID，三处结果不一致，视为无有效策略（走 revert 分支）。
@@ -70,6 +74,22 @@ class ClientTimezoneHooks(private val module: XposedModule) {
         private val refreshLock = Any()
 
         private const val POLL_INTERVAL_MS = 1_000L
+
+        /**
+         * Olson ID 全集（进程内静态数据，装钩时取一次缓存）。此前每次刷新都调
+         * TimeZone.getAvailableIDs()：分配 ~600 个字符串再线性查找，纯浪费。
+         */
+        private val AVAILABLE_IDS: Set<String> = java.util.HashSet<String>(TimeZone.getAvailableIDs().toList())
+
+        /** 主线程执行器：apply/revert 里的 TimeZone.setDefault / Os.setenv 是进程全局
+         *  状态变更，统一在主线程串行做（装钩本就在主线程；轮询/回调线程只在主线程
+         *  已运行时 post——进程装钩阶段主 Looper 必已启动）。 */
+        private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+        private inline fun onMainThread(crossinline body: () -> Unit) {
+            if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) body()
+            else mainHandler.post { body() }
+        }
     }
 
     // 进程级单 owner（与语言域一致：时区是进程全局状态，不可按包区分）
@@ -163,15 +183,15 @@ class ClientTimezoneHooks(private val module: XposedModule) {
             val tzRaw = if (eff.domainEnabled(PolicyResolver.Domain.TIMEZONE)) {
                 eff.policy?.timezoneId?.trim().orEmpty()
             } else ""
-            val valid = tzRaw.isNotEmpty() && tzRaw in TimeZone.getAvailableIDs()
+            val valid = tzRaw.isNotEmpty() && tzRaw in AVAILABLE_IDS
             when {
                 valid && tzRaw == appliedTz -> return  // 无变化
-                valid -> apply(tzRaw)
+                valid -> onMainThread { apply(tzRaw) }
                 appliedTz != null -> {
                     if (tzRaw.isNotEmpty()) {
                         ProbeLog.log("TZ-HOOKS 非法时区 '$tzRaw'，恢复真实时区 pkg=$pkg")
                     }
-                    revert()
+                    onMainThread { revert() }
                 }
                 else -> {
                     if (tzRaw.isNotEmpty()) {

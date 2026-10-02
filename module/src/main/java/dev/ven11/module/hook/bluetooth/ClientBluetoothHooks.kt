@@ -14,9 +14,10 @@ import java.util.Collections
  * 客户端蓝牙钩（目标应用进程）。语义与实现严格对齐（取代旧文档中互相矛盾的说法）：
  *
  * 1. getBondedDevices —— 由 policy.strictMode 决定：
- *    - 严格（默认）：只返回环境中 bondState=BONDED 的设备；环境为空返回空集
- *      （与基站域"严格=空列表"一致）。
- *    - 兼容：环境设备 ∪ 真实已配对设备（同址保留真实对象，属性由设备属性钩改写）。
+ *    - 严格（strictMode=true，显式配置）：只返回环境中 bondState=BONDED 的设备；
+ *      环境为空返回空集（与基站域"严格=空列表"一致）。
+ *    - 兼容（strictMode 缺省 false，与定位域默认对齐）：环境设备 ∪ 真实已配对设备
+ *      （同址保留真实对象，属性由设备属性钩改写）；环境无蓝牙数据时整体透传真实值。
  *    环境设备用 BluetoothAdapter.getRemoteDevice(address) 构造——公开 API，地址合法
  *    即返回对象，不要求设备真实存在——并配套 BluetoothDevice 属性钩补齐
  *    name/bondState/type/alias（否则真实蓝牙栈对陌生地址返回 null/BOND_NONE/UNKNOWN，
@@ -37,7 +38,7 @@ import java.util.Collections
  * 依赖的模型/策略字段（model/Snapshot.kt、ipc/PolicyResolver.kt 侧需同步提供）：
  *   - environment.btDevices[{address,name,bondState,rssi}]（rssi 留待扫描类出口使用）
  *   - environment.btAdapterAddress / btAdapterName（新增，可空）
- *   - policy.bluetoothEnabled（已有）/ policy.strictMode（新增，缺省 true）
+ *   - policy.bluetoothEnabled（已有）/ policy.strictMode（缺省 false=兼容，与定位域一致）
  */
 class ClientBluetoothHooks(private val module: XposedModule) {
 
@@ -82,9 +83,9 @@ class ClientBluetoothHooks(private val module: XposedModule) {
     /**
      * BLE 扫描（覆盖域扩展 4a）：信标定位的唯一入口。注册（startScan 各公开
      * ScanCallback 重载）照常 proceed，经 CallbackHooks 在回调具体类上改写交付：
-     *  - 严格模式（缺省）：抑制 onScanResult / onBatchScanResults 交付（无 BLE
-     *    环境数据 → 空视图，与 bonded 严格语义一致）；onScanFailed 透传；
-     *  - 兼容模式：透传真实扫描（真实设备 ∪ 环境设备的合成留待 model 增补）。
+ *  - 严格模式（strictMode=true 显式配置）：抑制 onScanResult / onBatchScanResults
+ *    交付（无 BLE 环境数据 → 空视图，与 bonded 严格语义一致）；onScanFailed 透传；
+ *  - 兼容模式（缺省）：透传真实扫描（真实设备 ∪ 环境设备的合成留待 model 增补）。
      * PendingIntent 变体不做：投递经系统 PendingIntent 通道，客户端拦不到
      * （覆盖计划 4a 备注，留系统侧）。
      */
@@ -114,9 +115,10 @@ class ClientBluetoothHooks(private val module: XposedModule) {
                                     if (ctx.strict) {
                                         // 严格模式：单条抑制（返回 null）；批量交空表
                                         if (name == "onBatchScanResults") {
-                                            val args = chain.args
-                                            args[0] = ArrayList<Any?>()
-                                            chain.proceed(args.toTypedArray())
+                                            // API 102 的 chain.args 不可变：复制数组后改写
+                                            val newArgs = chain.args.toTypedArray()
+                                            newArgs[0] = ArrayList<Any?>()
+                                            chain.proceed(newArgs)
                                         } else {
                                             null
                                         }
@@ -266,11 +268,13 @@ class ClientBluetoothHooks(private val module: XposedModule) {
         if (!eff.domainEnabled(PolicyResolver.Domain.BLUETOOTH)) return@runCatching null
         val env = eff.environment ?: return@runCatching null
         // 策略字段统一在 Policy.policy（评审一.4：原误用复数 policies，编译不过）：
-        // bluetoothEnabled: Boolean?（null=不模拟状态）、strictMode: Boolean?（缺省 true=严格）
+        // bluetoothEnabled: Boolean?（null=不模拟状态）、strictMode: Boolean?（缺省 false=兼容，
+        // 与定位域对齐——环境未配置蓝牙数据时透传真实设备/扫描，避免默认配置下
+        // 已配对设备消失、BLE 扫描被全屏蔽；显式 strictMode=true 才走隔离语义）
         Ctx(
             bt = btEnv(env),
             enabled = eff.policy?.bluetoothEnabled,
-            strict = eff.policy?.strictMode ?: true,
+            strict = eff.policy?.strictMode == true,
         )
     }.getOrNull()
 

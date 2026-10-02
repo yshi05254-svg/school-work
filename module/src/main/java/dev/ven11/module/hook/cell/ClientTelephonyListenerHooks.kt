@@ -66,15 +66,25 @@ class ClientTelephonyListenerHooks(private val module: XposedModule) {
             .intercept(object : io.github.libxposed.api.XposedInterface.Hooker {
                 override fun intercept(chain: io.github.libxposed.api.XposedInterface.Chain): Any? {
                     val registered = chain.proceed()
-                    val cb = chain.args.lastOrNull() ?: return registered
+                    // listen(PhoneStateListener, int events)：回调在首位——lastOrNull
+                    // 拿到的是 int events；registerTelephonyCallback(int?, Executor, cb)：
+                    // 回调固定在末位
+                    val cb = (if (legacy) chain.args.firstOrNull() else chain.args.lastOrNull())
+                        ?: return registered
+                    // 不依赖内部 stub 类名（ROM 间漂移：IPhoneStateListener / IPhoneStateListenerStub
+                    // 等）：应用的覆写在回调具体类上必然可枚举；未覆写的交付走基类方法，
+                    // 钩基类兜底（stub 内部经虚调用转回公开方法，同一交付点只拦一次）
+                    val base: Class<*>? = if (legacy) android.telephony.PhoneStateListener::class.java
+                    else android.telephony.TelephonyCallback::class.java
                     runCatching {
                         CallbackHooks.install(
                             module, "CELL-SS", cb,
-                            stubHint = if (legacy) "IPhoneStateListener" else "ITelephonyCallback",
+                            stubHint = null,
                             methodNames = setOf(
                                 "onCellInfoChanged", "onCellLocationChanged",
                                 "onServiceStateChanged", "onSignalStrengthsChanged",
                             ),
+                            baseFallback = base,
                         ) { chain, name ->
                             val out = runCatching { rewrite(name, chain, pkg, uid) }.getOrNull()
                             if (out != null) {
@@ -128,14 +138,26 @@ class ClientTelephonyListenerHooks(private val module: XposedModule) {
         val loc = CellInfoFactory.asGsmCellLocation(serving)
         return when (real) {
             is Bundle -> {
-                val key = real.keySet().firstOrNull { real.get(it) is android.telephony.CellLocation }
-                    ?: return null
-                // SDK 33+ 的 CellLocation stub 不再声明 Parcelable（运行时仍实现）：
-                // 运行时安全转换；转换失败透传真实值
-                val p = loc as? android.os.Parcelable ?: return null
-                // binder 派发的 Bundle 是私有副本，可原地替换
-                @Suppress("DEPRECATION")
-                real.putParcelable(key, p)
+                // binder 形态：registry 经 GsmCellLocation.fillInNotifierBundle 下发的是
+                // int 键（"lac"/"cid"/"psc"），不是 CellLocation 对象——对象键形态仅作
+                // 兼容保留，否则本分支永远不命中
+                val objKey = real.keySet().firstOrNull { real.get(it) is android.telephony.CellLocation }
+                if (objKey != null) {
+                    // SDK 33+ 的 CellLocation stub 不再声明 Parcelable（运行时仍实现）：
+                    // 运行时安全转换；转换失败透传真实值
+                    val p = loc as? android.os.Parcelable ?: return null
+                    // binder 派发的 Bundle 是私有副本，可原地替换
+                    @Suppress("DEPRECATION")
+                    real.putParcelable(objKey, p)
+                    hit("loc", "cellloc-bundle-obj")
+                    return real
+                }
+                val gsm = loc as? GsmCellLocation ?: return null
+                var touched = false
+                if (real.containsKey("lac")) { real.putInt("lac", gsm.lac); touched = true }
+                if (real.containsKey("cid")) { real.putInt("cid", gsm.cid); touched = true }
+                if (real.containsKey("psc")) { real.putInt("psc", gsm.psc); touched = true }
+                if (!touched) return null
                 hit("loc", "cellloc-bundle")
                 real
             }
@@ -150,7 +172,8 @@ class ClientTelephonyListenerHooks(private val module: XposedModule) {
     /**
      * ServiceState：公开拷贝构造 + 公开 setter（setState(0)=IN_SERVICE、
      * setOperatorName(long, short, numeric)、setRoaming(false)）。
-     * 运营商名/编号取 SIM 配置兜底，无配置时仅置注册态。
+     * 注册态（IN_SERVICE/不漫游）归 CELL 域；运营商名/编号来自 SIM 配置，
+     * 仅在 SIM 域开启且有配置时覆盖，无配置保留真实值（不把名字/编号清空成空串）。
      */
     private fun rewriteServiceState(real: ServiceState, pkg: String, uid: Int): ServiceState? {
         val eff = PolicyResolver.resolve(pkg, uid)
@@ -160,10 +183,14 @@ class ClientTelephonyListenerHooks(private val module: XposedModule) {
         val out = ServiceState(real) // 公开拷贝构造：保留真实网络能力字段
         runCatching { out.setState(ServiceState.STATE_IN_SERVICE) }
         runCatching { out.setRoaming(false) }
-        val slot = eff.payload.sim.slots.firstOrNull { it.active }
-        val alpha = slot?.carrierName?.takeIf { it.isNotBlank() }
-        val numeric = slot?.let { it.mcc + it.mnc }
-        runCatching { out.setOperatorName(alpha ?: "", alpha ?: "", numeric ?: "") }
+        if (eff.domainEnabled(PolicyResolver.Domain.SIM) && eff.payload.sim.enabled) {
+            val slot = eff.payload.sim.slots.firstOrNull { it.active }
+            val alpha = slot?.carrierName?.takeIf { it.isNotBlank() }
+            val numeric = slot?.let { it.mcc + it.mnc }
+            if (!alpha.isNullOrEmpty() || !numeric.isNullOrEmpty()) {
+                runCatching { out.setOperatorName(alpha ?: "", alpha ?: "", numeric ?: "") }
+            }
+        }
         hit("ss", "svc rat=${serving.radioType}")
         return out
     }
@@ -180,8 +207,10 @@ class ClientTelephonyListenerHooks(private val module: XposedModule) {
         val rat = CellInfoFactory.ratTypeOf(serving.radioType) ?: return null
         val sig = CellInfoFactory.buildSignalStrength(rat, serving.signalDbm) ?: return null
         val out = SignalStrength(real)
+        // 全层级遍历找 CellSignalStrength[]（实机日志显示部分 ROM 的字段不落在
+        // 前 4 层声明里）；找不到记一次日志后透传真实值
         val arrField = generateSequence<Class<*>>(out.javaClass) { it.superclass }
-            .take(4)
+            .takeWhile { it != Any::class.java }
             .flatMap { it.declaredFields.toList() }
             .firstOrNull { it.type.isArray && it.type.componentType.name.endsWith("CellSignalStrength") }
             ?: run {

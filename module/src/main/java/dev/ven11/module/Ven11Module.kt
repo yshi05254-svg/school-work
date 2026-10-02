@@ -60,7 +60,14 @@ class Ven11Module : XposedModule() {
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
         super.onSystemServerStarting(param)
         val n = SystemServiceBridge.installInSystemServer(this, param.classLoader)
-        log(Log.INFO, TAG, "system_server framework hooks installed=$n")
+        // 结果分级（审查八 #7）：正常启动的"主 classloader 未命中"不再打成 0，
+        // 只保留一次说明；装上或失败各有自己的日志
+        if (n > 0) {
+            log(Log.INFO, TAG, "system_server framework hooks installed=$n")
+        } else {
+            log(Log.INFO, TAG,
+                "system_server framework hooks: main classloader 未命中（S+ 走 startServiceFromJar 延迟路径）")
+        }
     }
 
     override fun onPackageLoaded(param: PackageLoadedParam) {

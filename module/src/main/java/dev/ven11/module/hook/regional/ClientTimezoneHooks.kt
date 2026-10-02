@@ -1,8 +1,11 @@
 package dev.ven11.module.hook.regional
 
+import android.os.Process
 import android.system.Os
 import android.util.Log
+import dev.ven11.module.ProbeLog
 import dev.ven11.module.ipc.PolicyResolver
+import dev.ven11.module.ipc.SnapshotStore
 import io.github.libxposed.api.XposedModule
 import java.util.TimeZone
 
@@ -20,7 +23,22 @@ import java.util.TimeZone
  *  - ZoneId.systemDefault 内联风险：钩已不存在；
  *  - 热路径开销：无每次 getTimeZone（synchronized）与反射调用。
  *
- * 落地步骤（顺序敏感）：
+ * 安装与热更新（评审二轮/三轮补充·高优先级）：SP 钩子无条件安装（幂等、轻量），
+ * "是否伪装、伪装成什么"由 [refreshFromSnapshot] 重新判定——
+ *  - 启动时已有有效策略 → 立即应用；
+ *  - 运行中出现/变更策略 → 应用新值（register 属性 + 重建默认时区 + TZ 环境变量）；
+ *    驱动源有二：快照版本变化回调（有其他钩子活动的进程，≤1s）+ 自驱轮询线程
+ *    （静止进程也能感知，文件读取经 SnapshotStore 节流 ≤1 次/秒）；
+ *  - masterEnabled 关闭 / 包或 UID 进排除名单 / 时区域禁用 / 策略删除 / timezoneId
+ *    非法 → [revert] 恢复真实时区：还原装钩时捕获的默认时区 / TZ / user.timezone
+ *    原值（不是清空——应用装钩前可能自设过这些值）。
+ *    revert 不再是无调用点的死代码，它是刷新路径的常态分支。
+ *
+ * 状态一致性说明：Java TimeZone、ICU（由 setDefault 内部同步）、native（TZ 环境变量）
+ * 三处的一致性依赖第 2 步的运行时校验；apply/revert 后 defaultOk 日志即三处一致性的
+ * 探针，需真机各实测一次。
+ *
+ * 落地步骤（首次应用，顺序敏感）：
  *  1. RegionalSystemPropertiesHook 注册 persist.sys.timezone → tzId，必须先装，
  *     因为后续重建路径经它读属性；
  *  2. TimeZone.setDefault(null)：libcore 读属性重建 defaultTimeZone 并顺带同步
@@ -33,10 +51,7 @@ import java.util.TimeZone
  *
  * ID 校验：必须命中 TimeZone.getAvailableIDs()。ZoneId.of() 接受的 "+08:00"、
  * "UTC+8"、"Z" 等写法会导致 getTimeZone 静默回退 GMT / ICU 返回 Etc/Unknown /
- * 属性原样返回非法 ID，三处结果不一致，install 时直接拒绝。
- *
- * install() 幂等可重入：SP 钩子进程级只装一次，重复调用（快照热更新）仅更新
- * 注册表并重建默认时区；策略清空调 revert() 撤销伪装、恢复真实时区。
+ * 属性原样返回非法 ID，三处结果不一致，视为无有效策略（走 revert 分支）。
  *
  * 未覆盖（需单独实测，不能假设已覆盖）：
  *  - WebView 渲染进程是 isolated 进程，不加载本模块，JS 侧
@@ -48,34 +63,133 @@ import java.util.TimeZone
  */
 class ClientTimezoneHooks(private val module: XposedModule) {
 
-    fun install(cl: ClassLoader, pkg: String): Int {
-        val uid = android.os.Process.myUid()
-        val policy = PolicyResolver.resolve(pkg, uid)
-        // 评审四：总开关/排除名单/策略级域开关统一经 domainEnabled，语言/时区域不豁免
-        if (!policy.domainEnabled(PolicyResolver.Domain.TIMEZONE)) {
-            dev.ven11.module.ProbeLog.log("TZ-HOOKS n=0 pkg=$pkg (域未启用/总开关关闭/在排除名单)")
-            return 0
-        }
-        val tzRaw = policy.policy?.timezoneId?.trim().orEmpty()
-        if (tzRaw.isEmpty()) {
-            dev.ven11.module.ProbeLog.log("TZ-HOOKS n=0 pkg=$pkg (无时区策略)")
-            return 0
-        }
-        // 严格校验 Olson ID，非法值拒绝安装而不是静默变成 GMT
-        if (tzRaw !in TimeZone.getAvailableIDs()) {
-            module.log(Log.WARN, "VEN11", "TZ-HOOKS 非法时区 '$tzRaw' pkg=$pkg，跳过")
-            dev.ven11.module.ProbeLog.log(
-                "TZ-HOOKS n=0 pkg=$pkg 非法时区 '$tzRaw'（非 Olson ID），跳过")
-            return 0
-        }
+    companion object {
+        private const val TAG = "VEN11"
 
+        /** 单飞行门：刷新可能被轮询线程/装钩线程并发触发，全局状态变更须串行 */
+        private val refreshLock = Any()
+
+        private const val POLL_INTERVAL_MS = 1_000L
+    }
+
+    // 进程级单 owner（与语言域一致：时区是进程全局状态，不可按包区分）
+    @Volatile
+    private var ownerPkg: String? = null
+
+    @Volatile
+    private var ownerUid: Int = 0
+
+    /** 当前已应用的伪装 ID；null = 未伪装（透传真实时区） */
+    @Volatile
+    private var appliedTz: String? = null
+
+    // 装钩时捕获的真实状态（revert 还原用；装钩后不再更新——还原目标始终是"装钩前"）
+    @Volatile
+    private var realDefaultTz: String? = null
+
+    @Volatile
+    private var realTzEnv: String? = null
+
+    @Volatile
+    private var realUserTimezoneProp: String? = null
+
+    private val pollerStarted = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    fun install(cl: ClassLoader, pkg: String): Int {
+        ownerPkg = pkg
+        ownerUid = Process.myUid()
+        captureRealState()
+
+        // 1) SP 钩子无条件安装：轻量（幂等），语言/时区共用同一组拦截器；
+        //    无策略时注册表为空，所有查询原样放行
+        val spN = RegionalSystemPropertiesHook.install(module, cl)
+
+        // 2) 热更新双驱动（评审三轮 #5）：
+        //    a. 快照版本变化回调——有其他域钩子活动（定位/WiFi/SP 查询等）的进程
+        //       由轮询触发，延迟 ≤1s；
+        //    b. 自驱轮询线程——应用长时间不触发任何被钩方法时也能感知策略变更/
+        //       关闭（否则静止进程会永久停留在旧伪装值）。内部经 SnapshotStore 的
+        //       1s 节流，文件读取至多 1 次/秒，开销可忽略。
+        SnapshotStore.registerListener("timezone") { _, _ -> refreshFromSnapshot() }
+        startPoller()
+
+        // 3) 启动时已有有效策略则立即应用；没有则保持透传
+        //    （覆盖"装钩完成前快照刚好更新"的竞态窗口）
+        refreshFromSnapshot()
+
+        val tz = appliedTz ?: "-"
+        module.log(Log.INFO, TAG, "timezone hooks installed pkg=$pkg tz=$tz sp=$spN")
+        ProbeLog.log("TZ-HOOKS installed pkg=$pkg tz=$tz sp=$spN")
+        return spN + if (appliedTz != null) 1 else 0
+    }
+
+    /** 首次伪装前捕获真实状态，revert 按原值还原而不是清空（评审三轮 #5） */
+    private fun captureRealState() {
+        realDefaultTz = TimeZone.getDefault().id
+        realTzEnv = System.getenv("TZ")
+        realUserTimezoneProp = System.getProperty("user.timezone")
+    }
+
+    /** 自驱轮询：进程存活期间持续感知配置变化；daemon 线程，随进程退出 */
+    private fun startPoller() {
+        if (pollerStarted.compareAndSet(false, true)) {
+            Thread({
+                while (true) {
+                    try {
+                        Thread.sleep(POLL_INTERVAL_MS)
+                    } catch (_: InterruptedException) {
+                        // 进程退出场景，静默结束
+                        return@Thread
+                    }
+                    runCatching { refreshFromSnapshot() }
+                        .onFailure { ProbeLog.log("TZ-POLL-ERR ${it.javaClass.simpleName}: ${it.message}") }
+                }
+            }, "ven11-tz-poll").apply {
+                isDaemon = true
+                start()
+            }
+        }
+    }
+
+    /**
+     * 快照版本变化入口（也在装钩时直接调用一次）：
+     * 重新解析策略，与已应用值比对——不变则 no-op，有效新值走 apply，
+     * 无有效值（含域禁用/排除名单/非法 ID）且当前有伪装则 revert。
+     */
+    private fun refreshFromSnapshot() {
+        val pkg = ownerPkg ?: return
+        synchronized(refreshLock) {
+            val eff = PolicyResolver.resolve(pkg, ownerUid)
+            val tzRaw = if (eff.domainEnabled(PolicyResolver.Domain.TIMEZONE)) {
+                eff.policy?.timezoneId?.trim().orEmpty()
+            } else ""
+            val valid = tzRaw.isNotEmpty() && tzRaw in TimeZone.getAvailableIDs()
+            when {
+                valid && tzRaw == appliedTz -> return  // 无变化
+                valid -> apply(tzRaw)
+                appliedTz != null -> {
+                    if (tzRaw.isNotEmpty()) {
+                        ProbeLog.log("TZ-HOOKS 非法时区 '$tzRaw'，恢复真实时区 pkg=$pkg")
+                    }
+                    revert()
+                }
+                else -> {
+                    if (tzRaw.isNotEmpty()) {
+                        ProbeLog.log("TZ-HOOKS n=0 pkg=$pkg 非法时区 '$tzRaw'（非 Olson ID），跳过")
+                    }
+                }
+            }
+        }
+    }
+
+    /** 应用/切换伪装值：注册属性覆盖 → 重建默认时区 → TZ 环境变量 → user.timezone。 */
+    private fun apply(tzRaw: String) {
+        val pkg = ownerPkg ?: return
         var n = 0
         var via = ""
 
-        // 1) SP 钩子先装：后续 setDefault(null) 的重建路径经它读属性
-        RegionalSystemPropertiesHook.register(
-            RegionalSystemPropertiesHook.KEY_TIMEZONE, tzRaw)
-        val spN = RegionalSystemPropertiesHook.install(module, cl)
+        // 1) SP 覆盖先注册：后续 setDefault(null) 的重建路径经它读属性
+        RegionalSystemPropertiesHook.register(RegionalSystemPropertiesHook.KEY_TIMEZONE, tzRaw)
 
         // 2) 重建 defaultTimeZone（getDefaultRef 读的同一静态字段）并同步 ICU 缓存
         var rebuilt = false
@@ -83,8 +197,8 @@ class ClientTimezoneHooks(private val module: XposedModule) {
             TimeZone.setDefault(null)
             rebuilt = TimeZone.getDefault().id == tzRaw
         }.onFailure {
-            module.log(Log.WARN, "VEN11",
-                "TZ-HOOKS setDefault(null) 失败 pkg=$pkg: ${android.util.Log.getStackTraceString(it)}")
+            module.log(Log.WARN, TAG,
+                "TZ-HOOKS setDefault(null) 失败 pkg=$pkg: ${Log.getStackTraceString(it)}")
         }
         if (rebuilt) {
             via = "property"; n++
@@ -93,8 +207,8 @@ class ClientTimezoneHooks(private val module: XposedModule) {
             runCatching { TimeZone.setDefault(TimeZone.getTimeZone(tzRaw)) }
                 .onSuccess { via = "explicit"; n++ }
                 .onFailure {
-                    module.log(Log.WARN, "VEN11",
-                        "TZ-HOOKS 显式 setDefault 失败 pkg=$pkg: ${android.util.Log.getStackTraceString(it)}")
+                    module.log(Log.WARN, TAG,
+                        "TZ-HOOKS 显式 setDefault 失败 pkg=$pkg: ${Log.getStackTraceString(it)}")
                 }
         }
 
@@ -102,30 +216,50 @@ class ClientTimezoneHooks(private val module: XposedModule) {
         runCatching { Os.setenv("TZ", tzRaw, true) }
             .onSuccess { n++ }
             .onFailure {
-                module.log(Log.WARN, "VEN11",
-                    "TZ-HOOKS setenv(TZ) 失败 pkg=$pkg: ${android.util.Log.getStackTraceString(it)}")
+                module.log(Log.WARN, TAG,
+                    "TZ-HOOKS setenv(TZ) 失败 pkg=$pkg: ${Log.getStackTraceString(it)}")
             }
 
         // 4) 兼容直接读 user.timezone 的库
         runCatching { System.setProperty("user.timezone", tzRaw) }.onSuccess { n++ }
 
+        val prev = appliedTz
+        appliedTz = tzRaw
         val ok = TimeZone.getDefault().id == tzRaw
-        module.log(Log.INFO, "VEN11",
-            "timezone applied pkg=$pkg tz=$tzRaw via=$via sp=$spN steps=$n defaultOk=$ok")
-        dev.ven11.module.ProbeLog.log(
-            "TZ-HOOKS n=$n pkg=$pkg tz=$tzRaw via=$via sp=$spN default=${TimeZone.getDefault().id}")
-        return n
+        ProbeLog.log("TZ-HOOKS apply pkg=$pkg tz=$prev -> $tzRaw via=$via steps=$n defaultOk=$ok")
+        module.log(Log.INFO, TAG,
+            "timezone applied pkg=$pkg tz=$tzRaw via=$via steps=$n defaultOk=$ok")
     }
 
-    /** 热更新/策略清空：撤销时区伪装并恢复真实时区（语言域注册的 key 不受影响） */
-    fun revert(cl: ClassLoader, pkg: String) {
-        RegionalSystemPropertiesHook.unregister(RegionalSystemPropertiesHook.KEY_TIMEZONE)
-        runCatching { TimeZone.setDefault(null) }   // 重建回真实 persist.sys.timezone
-        runCatching { Os.unsetenv("TZ") }
-        runCatching { System.clearProperty("user.timezone") }
-        module.log(Log.INFO, "VEN11",
-            "timezone reverted pkg=$pkg → ${TimeZone.getDefault().id}")
-        dev.ven11.module.ProbeLog.log(
-            "TZ-HOOKS reverted pkg=$pkg → ${TimeZone.getDefault().id}")
+    /**
+     * 撤销伪装并恢复真实时区（策略删除/域禁用/非法 ID/快照清空）。
+     * 恢复语义（评审三轮 #5）：还原为装钩时捕获的真实状态，而不是清空——
+     * 应用在装钩前可能自己设置过 TZ 环境变量 / user.timezone 属性，直接
+     * unsetenv/clearProperty 会破坏应用自身语义。顺序敏感：先注销属性覆盖，
+     * 后续重建/读回才不经过伪装值。
+     */
+    private fun revert() {
+        val pkg = ownerPkg ?: return
+        val prev = appliedTz ?: return
+        runCatching { RegionalSystemPropertiesHook.unregister(RegionalSystemPropertiesHook.KEY_TIMEZONE) }
+        // 默认时区：显式还原捕获值（TimeZone.setDefault 同步 ICU 缓存）；失败再试
+        // setDefault(null) 走属性重建路径
+        val realId = realDefaultTz
+        runCatching { TimeZone.setDefault(TimeZone.getTimeZone(realId ?: "UTC")) }
+            .onFailure { runCatching { TimeZone.setDefault(null) } }
+        // TZ 环境变量：原值存在则还原，原本未设置才 unsetenv
+        runCatching {
+            val env = realTzEnv
+            if (env.isNullOrEmpty()) Os.unsetenv("TZ") else Os.setenv("TZ", env, true)
+        }
+        // user.timezone 属性：同理按原值还原
+        runCatching {
+            val prop = realUserTimezoneProp
+            if (prop.isNullOrEmpty()) System.clearProperty("user.timezone")
+            else System.setProperty("user.timezone", prop)
+        }
+        appliedTz = null
+        ProbeLog.log("TZ-HOOKS revert pkg=$pkg $prev -> ${TimeZone.getDefault().id}")
+        module.log(Log.INFO, TAG, "timezone reverted pkg=$pkg -> ${TimeZone.getDefault().id}")
     }
 }

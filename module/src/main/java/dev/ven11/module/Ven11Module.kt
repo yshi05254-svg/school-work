@@ -5,12 +5,14 @@ import android.os.Process
 import dev.ven11.module.hook.bluetooth.ClientBluetoothHooks
 import dev.ven11.module.hook.cell.CellInfoFactory
 import dev.ven11.module.hook.cell.ClientCellHooks
+import dev.ven11.module.hook.cell.ClientTelephonyListenerHooks
 import dev.ven11.module.hook.framework.FrameworkCellHooks
 import dev.ven11.module.hook.framework.SystemServiceBridge
 import dev.ven11.module.hook.location.ClientLocationHooks
 import dev.ven11.module.hook.regional.ClientLanguageHooks
 import dev.ven11.module.hook.regional.ClientTimezoneHooks
 import dev.ven11.module.hook.sim.ClientSimHooks
+import dev.ven11.module.hook.wifi.ClientConnectivityHooks
 import dev.ven11.module.hook.wifi.ClientWifiHooks
 import dev.ven11.module.ipc.SnapshotStore
 import io.github.libxposed.api.XposedModule
@@ -79,7 +81,9 @@ class Ven11Module : XposedModule() {
         var n = 0
         n += ClientLocationHooks(this).install(cl, pkg)
         n += ClientCellHooks(this).install(cl, pkg)
+        n += ClientTelephonyListenerHooks(this).install(cl, pkg)
         n += ClientWifiHooks(this).install(cl, pkg)
+        n += ClientConnectivityHooks(this).install(cl, pkg)
         n += ClientSimHooks(this).install(cl, pkg)
         n += ClientBluetoothHooks(this).install(cl, pkg)
         n += ClientTimezoneHooks(this).install(cl, pkg)

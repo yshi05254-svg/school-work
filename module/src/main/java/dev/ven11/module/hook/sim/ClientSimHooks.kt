@@ -83,6 +83,15 @@ class ClientSimHooks(private val module: XposedModule) {
         "getSupportedModemCount" to MEntry("modemCount", ArgKind.NONE),   // 卡槽/调制解调器数，非激活卡数（#8）
         "getMcc" to MEntry("mcc", ArgKind.NONE),
         "getMnc" to MEntry("mnc", ArgKind.NONE),
+        // ---- 网络侧出口（覆盖域扩展 3a，参考 VR F8.d 收录）：取值优先服务小区
+        // ---- （Cell 域环境），无小区回落 SIM 配置；域门仍是 Domain.SIM
+        "getNetworkOperator" to MEntry("netop", ArgKind.NONE),
+        "getNetworkOperatorName" to MEntry("netopName", ArgKind.NONE),
+        "getNetworkCountryIso" to MEntry("netCountry", ArgKind.NONE),
+        "getPhoneType" to MEntry("phoneType", ArgKind.NONE),
+        "getNetworkType" to MEntry("netType", ArgKind.NONE),
+        "getDataNetworkType" to MEntry("netType", ArgKind.NONE),
+        "getVoiceNetworkType" to MEntry("netType", ArgKind.NONE),
     )
 
     /* ============ 决策结果：保证原方法在整个拦截路径中至多执行一次（#2） ============ */
@@ -168,8 +177,41 @@ class ClientSimHooks(private val module: XposedModule) {
             "modemCount" -> direct(sim.slots.size, rt)
             "mcc" -> direct(a?.mcc?.ifEmpty { null }, rt)
             "mnc" -> direct(a?.mnc?.ifEmpty { null }, rt)
+            // ---- 网络侧出口（3a）：proceed-first；无虚拟数据时 Origin 保持真实
+            "netop" -> netValue(chain, rt) {
+                servingCell(eff)?.let { it.mcc + it.mnc } ?: a?.let { plmnOf(it) }
+            }
+            // 网络运营商标名无独立 cell 来源，由 SIM 配置承载（carrierName）
+            "netopName" -> netValue(chain, rt) { a?.carrierName?.ifEmpty { null } }
+            "netCountry" -> netValue(chain, rt) { a?.countryIso?.ifEmpty { null } }
+            "phoneType" -> replaceIfAllowed(chain, rt) { 1 }   // PHONE_TYPE_GSM：虚拟卡槽按 GSM 栈
+            "netType" -> netValue(chain, rt) { networkTypeOf(eff) }
             else -> Decided.Origin                  // 表驱动安全网
         }
+    }
+
+    /** 服务小区（Cell 域环境）优先取 PLMN/网络类型；无小区时调用方回落 SIM 配置 */
+    private fun servingCell(eff: dev.ven11.module.ipc.PolicyResolver.EffectivePolicy) =
+        eff.environment?.cells?.takeIf { it.isNotEmpty() }
+            ?.let { dev.ven11.module.hook.cell.CellInfoFactory.pickServing(it) }
+
+    /** 服务小区制式 → TelephonyManager.NETWORK_TYPE_*；无小区返回 null（Origin） */
+    private fun networkTypeOf(eff: dev.ven11.module.ipc.PolicyResolver.EffectivePolicy): Int? {
+        val cell = servingCell(eff) ?: return null
+        val rat = dev.ven11.module.hook.cell.CellInfoFactory.ratTypeOf(cell.radioType) ?: return null
+        return when (rat) {
+            dev.ven11.module.hook.cell.CellInfoFactory.Rat.GSM -> 16      // NETWORK_TYPE_GSM
+            dev.ven11.module.hook.cell.CellInfoFactory.Rat.WCDMA -> 3     // NETWORK_TYPE_UMTS
+            dev.ven11.module.hook.cell.CellInfoFactory.Rat.LTE -> 13      // NETWORK_TYPE_LTE
+            dev.ven11.module.hook.cell.CellInfoFactory.Rat.TDSCDMA -> 17  // NETWORK_TYPE_TD_SCDMA
+            dev.ven11.module.hook.cell.CellInfoFactory.Rat.NR -> 20       // NETWORK_TYPE_NR
+        }
+    }
+
+    /** 网络侧取值：虚拟值为 null（无小区且无 SIM 配置）→ Origin 保持真实；否则 proceed-first 替换 */
+    private fun netValue(chain: XposedInterface.Chain, rt: Class<*>, virtual: () -> Any?): Decided {
+        val v = runCatching { virtual() }.getOrNull() ?: return Decided.Origin
+        return replaceIfAllowed(chain, rt) { v }
     }
 
     /* ============ SubscriptionManager ============ */

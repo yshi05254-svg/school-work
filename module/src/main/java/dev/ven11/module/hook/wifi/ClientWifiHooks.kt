@@ -8,6 +8,7 @@ import android.net.wifi.SupplicantState
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.net.wifi.WifiSsid
+import android.os.Build
 import android.os.SystemClock
 import android.os.UserHandle
 import android.util.Log
@@ -17,7 +18,46 @@ import dev.ven11.module.model.VirtualWifi
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 
-private const val REDACTED_MAC = "02:00:00:00:00:00"
+/**
+ * WifiInfo 改写器（覆盖域扩展共用：ClientWifiHooks / ClientConnectivityHooks /
+ * 框架侧 getConnectionInfo 同一语义）。binder 派发的 WifiInfo 是调用方私有副本，
+ * 原地改写安全；框架侧同进程共享对象不适用（各调用点自行判断）。
+ */
+object WifiInfoSpoofer {
+
+    private const val REDACTED_MAC = "02:00:00:00:00:00"
+
+    /** 真实结果已被系统脱敏（无权限视角）→ 保持脱敏不替换 */
+    fun isRedacted(info: WifiInfo): Boolean =
+        info.bssid == REDACTED_MAC || info.ssid == WifiManager.UNKNOWN_SSID
+
+    /** 未连接（networkId=-1 或 supplicant 未完成）→ 不改写，避免矛盾状态 */
+    fun isConnected(info: WifiInfo): Boolean =
+        info.networkId != -1 && info.supplicantState == SupplicantState.COMPLETED
+
+    /**
+     * 反射改写 mWifiSsid/mBSSID/mRssi/mFrequency；WifiSsid 构造失败则整体放弃
+     * 改写（避免半伪造状态）。
+     */
+    fun spoof(info: WifiInfo, w: VirtualWifi): WifiInfo {
+        val ssidObj = ScanResultFactory.wifiSsidOf(w.ssid) ?: return info
+        setField(info, "mWifiSsid", ssidObj)
+        setField(info, "mBSSID", w.bssid)
+        setField(info, "mRssi", w.signalDbm)
+        setField(info, "mFrequency", w.frequencyMhz)  // 频率与 BSSID 保持对应
+        return info
+    }
+
+    private fun setField(target: Any, name: String, value: Any) {
+        try {
+            val f = target.javaClass.getDeclaredField(name)
+            f.isAccessible = true
+            f.set(target, value)
+        } catch (t: Throwable) {
+            ProbeLog.log("WIFI-CONN set $name failed: $t")
+        }
+    }
+}
 
 /**
  * 客户端 WiFi 钩（目标应用进程）：
@@ -88,33 +128,13 @@ class ClientWifiHooks(private val module: XposedModule) {
             else -> {
                 val info = real as? WifiInfo ?: return real
                 // 真实结果已被系统脱敏（无权限视角）时保持脱敏，不替换
-                if (info.bssid == REDACTED_MAC || info.ssid == WifiManager.UNKNOWN_SSID) return real
+                if (WifiInfoSpoofer.isRedacted(info)) return real
                 // 未连接时不改写，避免"未连接却有 SSID/BSSID"的矛盾状态
-                if (info.networkId == -1 || info.supplicantState != SupplicantState.COMPLETED) return real
+                if (!WifiInfoSpoofer.isConnected(info)) return real
                 val w = env.wifis.first()
                 hit("wifi-conn ssid=${w.ssid}")
-                spoofWifiInfo(info, w)
+                WifiInfoSpoofer.spoof(info, w)
             }
-        }
-    }
-
-    /** WifiInfo 反射改写：mWifiSsid/mBSSID/mRssi/mFrequency；WifiSsid 构造失败则整体放弃改写（避免半伪造状态） */
-    private fun spoofWifiInfo(info: WifiInfo, w: VirtualWifi): WifiInfo {
-        val ssidObj = ScanResultFactory.wifiSsidOf(w.ssid) ?: return info
-        setField(info, "mWifiSsid", ssidObj)
-        setField(info, "mBSSID", w.bssid)
-        setField(info, "mRssi", w.signalDbm)
-        setField(info, "mFrequency", w.frequencyMhz)  // 频率与 BSSID 保持对应
-        return info
-    }
-
-    private fun setField(target: Any, name: String, value: Any) {
-        try {
-            val f = target.javaClass.getDeclaredField(name)
-            f.isAccessible = true
-            f.set(target, value)
-        } catch (t: Throwable) {
-            ProbeLog.log("WIFI-CONN set $name failed: $t")
         }
     }
 
@@ -157,6 +177,11 @@ object ScanResultFactory {
                 sr.level = w.signalDbm
                 sr.frequency = w.frequencyMhz
                 sr.timestamp = nowUs
+                // 频宽形态（覆盖域扩展 2a）：保守取 20MHz + centerFreq0=frequency——
+                // 与 capabilities 不含 40PLUS/80 标记的自洽形态；centerFreq1 仅 80+80 用
+                sr.channelWidth = ScanResult.CHANNEL_WIDTH_20MHZ
+                sr.centerFreq0 = w.frequencyMhz
+                sr.centerFreq1 = 0
                 // API 33+ getWifiSsid() 读隐藏字段 wifiSsid，只设 SSID 时它返回 null；低版本无此字段，失败忽略
                 wifiSsidOf(w.ssid)?.let {
                     try {
@@ -174,16 +199,29 @@ object ScanResultFactory {
         return out
     }
 
-    /** API 33+ 用 fromString（带引号 UTF-8 形式）；低版本退回 createFromAsciiEncoded；都失败返回 null */
-    fun wifiSsidOf(ssid: String): WifiSsid? = try {
-        WifiSsid::class.java.getDeclaredMethod("fromString", String::class.java)
-            .invoke(null, "\"$ssid\"") as? WifiSsid
-    } catch (_: Throwable) {
-        try {
-            WifiSsid::class.java.getDeclaredMethod("createFromAsciiEncoded", String::class.java)
-                .invoke(null, ssid) as? WifiSsid
+    /**
+     * SSID → WifiSsid：API 33+ 优先公开的 fromBytes（裸字节，无引号）；低版本退回
+     * 隐藏 fromString（带引号 UTF-8 形式）与 createFromAsciiEncoded；都失败返回 null。
+     */
+    fun wifiSsidOf(ssid: String): WifiSsid? {
+        if (Build.VERSION.SDK_INT >= 33) {
+            try {
+                return WifiSsid::class.java
+                    .getMethod("fromBytes", ByteArray::class.java)
+                    .invoke(null, ssid.toByteArray(Charsets.UTF_8)) as? WifiSsid
+            } catch (_: Throwable) {
+            }
+        }
+        return try {
+            WifiSsid::class.java.getDeclaredMethod("fromString", String::class.java)
+                .invoke(null, "\"$ssid\"") as? WifiSsid
         } catch (_: Throwable) {
-            null
+            try {
+                WifiSsid::class.java.getDeclaredMethod("createFromAsciiEncoded", String::class.java)
+                    .invoke(null, ssid) as? WifiSsid
+            } catch (_: Throwable) {
+                null
+            }
         }
     }
 

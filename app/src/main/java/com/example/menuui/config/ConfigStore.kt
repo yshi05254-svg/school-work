@@ -17,6 +17,19 @@ object ConfigStore {
 
     fun file(context: Context): File = File(context.filesDir, FILE_NAME)
 
+    private const val PUBLISHED_FP_FILE = "published.fp"
+
+    /** 最后一次成功发布的快照指纹（ConfigBus 判断"有未发布改动"）；缺失返回 null */
+    fun loadPublishedFingerprint(context: Context): Int? = try {
+        File(context.filesDir, PUBLISHED_FP_FILE).takeIf { it.exists() }?.readText()?.trim()?.toIntOrNull()
+    } catch (_: Throwable) {
+        null
+    }
+
+    fun savePublishedFingerprint(context: Context, fp: Int) {
+        File(context.filesDir, PUBLISHED_FP_FILE).writeText(fp.toString())
+    }
+
     fun load(context: Context): ManagerConfig = try {
         val f = file(context)
         if (!f.exists()) ManagerConfig() else parse(JSONObject(f.readText()))

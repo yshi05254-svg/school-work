@@ -14,6 +14,12 @@
          否则 getPackageInfo 抛 NameNotFound → 首页误报"未安装模块" -->
     <queries>
         <package android:name="dev.ven11.module" />
+        <!-- 应用页选择器：列出桌面可启动的应用（免 QUERY_ALL_PACKAGES），
+             同时让已添加的目标应用能显示应用名 -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
     <application

@@ -302,7 +302,7 @@ class JoystickOverlayService : Service() {
                 epoch = epoch,
             ),
         )
-        ConfigBus.publishAsync(record = false)
+        ConfigBus.publishAsync(record = false, quiet = true)
         lastPublishAt = now
         lastPublishedVn = vNorth
         lastPublishedVe = vEast
@@ -335,7 +335,7 @@ class JoystickOverlayService : Service() {
         val last = ConfigBus.joystick.value
         if (last != null) {
             ConfigBus.setJoystick(last.copy(active = false, vNorthMps = 0.0, vEastMps = 0.0))
-            ConfigBus.publishAsync(record = false) {
+            ConfigBus.publishAsync(record = false, quiet = true) {
                 ConfigBus.setJoystick(null)
             }
         }

@@ -1,6 +1,5 @@
 package dev.ven11.module.ipc
 
-import android.os.SystemClock
 import dev.ven11.module.model.GpsJitter
 import dev.ven11.module.model.Policy
 import dev.ven11.module.model.Snapshot
@@ -18,8 +17,12 @@ import dev.ven11.module.model.VirtualEnvironment
  *  2. 全局回落策略：pkg=null 的那条（GPS 等域使用其环境；语言域只认 exact）；
  *  3. 都没有 → policy=null，domainEnabled 仍可对"全局开关 + 排除名单"作出判断。
  *
- * 热路径成本：resolve 被 GPS / WiFi 等高频回调逐次调用，带 (pkg,uid) TTL 微缓存；
- * TTL 到期前的快照热更新对该调用方最多延迟 CACHE_TTL_MS 可见。
+ * 热路径成本：resolve 被 GPS / WiFi / SystemProperties 等高频路径逐次调用。
+ * 快照不可变，同一快照实例 + 同一 (pkg, uid) 的解析结果恒定，故按快照身份缓存：
+ *  - 快照未换 → 直接返回缓存结果（无字符串拼接、无策略表线性扫描）；
+ *  - 快照换了 → 整表作废（版本切换即时可见，无 TTL 延迟）；
+ *  - 多调用方（system_server / phone 按 binder 调用方 uid 解析）各占一项，
+ *    条目上限 [CACHE_MAX] 防异常增长。
  */
 object PolicyResolver {
 
@@ -39,19 +42,45 @@ object PolicyResolver {
             gateOpen && policy?.disabledDomains?.contains(domain.name) != true
     }
 
-    private const val CACHE_TTL_MS = 250L
+    private const val CACHE_MAX = 256
 
-    private class Cached(val key: String, val at: Long, val value: EffectivePolicy)
+    private class Entry(val pkg: String, val uid: Int, val value: EffectivePolicy)
+
+    /** 某一快照实例下的解析表；快照替换时整体换新（读侧无锁） */
+    private class Table(val snap: Snapshot) {
+        /** 客户端进程只有一个调用方：单项快路径，免查表 */
+        @Volatile
+        var last: Entry? = null
+        val byUid = java.util.concurrent.ConcurrentHashMap<Int, Entry>()
+    }
 
     @Volatile
-    private var cache: Cached? = null
+    private var table: Table = Table(Snapshot.EMPTY)
 
     fun resolve(pkg: String, uid: Int): EffectivePolicy {
-        val key = "$pkg#$uid"
-        val now = SystemClock.elapsedRealtime()
-        cache?.let { if (it.key == key && now - it.at < CACHE_TTL_MS) return it.value }
-
+        // current() 只做节流判定（volatile 读），同时承担驱动快照轮询的职责
         val snap = SnapshotStore.current()
+        var t = table
+        if (t.snap !== snap) {
+            t = Table(snap)
+            table = t
+        }
+        t.last?.let { if (it.uid == uid && it.pkg == pkg) return it.value }
+        t.byUid[uid]?.let {
+            if (it.pkg == pkg) {
+                t.last = it
+                return it.value
+            }
+        }
+        val value = compute(snap, pkg, uid)
+        val e = Entry(pkg, uid, value)
+        if (t.byUid.size >= CACHE_MAX) t.byUid.clear()
+        t.byUid[uid] = e
+        t.last = e
+        return value
+    }
+
+    private fun compute(snap: Snapshot, pkg: String, uid: Int): EffectivePolicy {
         val userId = uid / 100_000
         val exact = snap.policies.firstOrNull {
             it.pkg == pkg && (it.userId == null || it.userId == userId)
@@ -70,11 +99,11 @@ object PolicyResolver {
             jitter = snap.jitter,
             payload = snap,
             gateOpen = gateOpen,
-        ).also { cache = Cached(key, now, it) }
+        )
     }
 
-    /** 快照版本变化时由 SnapshotStore 调用：总开关/排除名单变化不吃 TTL 延迟 */
+    /** 快照版本变化时由 SnapshotStore 调用（缓存已按快照身份失效，这里只是显式提前作废） */
     fun invalidate() {
-        cache = null
+        table = Table(SnapshotStore.peek())
     }
 }

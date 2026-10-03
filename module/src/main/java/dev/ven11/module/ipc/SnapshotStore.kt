@@ -1,5 +1,7 @@
 package dev.ven11.module.ipc
 
+import android.database.ContentObserver
+import android.net.Uri
 import android.os.SystemClock
 import dev.ven11.module.ProbeLog
 import dev.ven11.module.hook.framework.UidResolver
@@ -9,6 +11,7 @@ import dev.ven11.module.publish.ConfigContentProvider
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -36,6 +39,15 @@ import java.util.concurrent.atomic.AtomicBoolean
  *  - "无配置 / masterEnabled 关闭"是合法状态，与解析失败分开处理；
  *  - 快照替换与 PolicyResolver 失效一致；监听通知在仓库锁外执行；
  *  - SNAP 事件带 via=<通道>，验收时可直接判定各进程实际走了哪条路。
+ *
+ * 功耗（推送优先，轮询兜底）：
+ *  - 首轮轮询时在后台线程注册 provider 的 ContentObserver；管理端 insert 后
+ *    provider notifyChange，本进程强制拉取一次（距上次轮询已满 1s 立即执行，
+ *    否则推迟到满 1s——摇杆 250ms 一次的写入被合并，拉取频率不高于原轮询）；
+ *  - 推送生效后 provider 的 binder 版本查询降到 [PROVIDER_SAFETY_MS] 一次
+ *    （兜底漏推送：进程冻结/观察者被清理），文件通道仍 1s stat（无 IPC）；
+ *  - 注册失败（包可见性/早期 system_server）保持原 1s binder 轮询，
+ *    [OBSERVER_RETRY_MS] 后重试注册。
  */
 object SnapshotStore {
 
@@ -52,6 +64,12 @@ object SnapshotStore {
     private const val RETRY_MIN_MS = 3_000L
     private const val RETRY_MAX_MS = 30_000L
 
+    /** 推送生效时 provider 版本查询的兜底间隔（无推送时每次轮询都查） */
+    private const val PROVIDER_SAFETY_MS = 5_000L
+
+    /** 观察者注册失败后的重试间隔 */
+    private const val OBSERVER_RETRY_MS = 30_000L
+
     @Volatile
     private var current: Snapshot = Snapshot.EMPTY
 
@@ -61,10 +79,22 @@ object SnapshotStore {
     private val pollLock = Any()
 
     /** 单线程后台执行器：轮询（binder/文件 IO）与解析都在这里，热路径零 IO */
-    private val ioExecutor = Executors.newSingleThreadExecutor { r ->
+    private val ioExecutor = Executors.newSingleThreadScheduledExecutor { r ->
         Thread(r, "ven11-snap-poll").apply { isDaemon = true }
     }
     private val pollPending = AtomicBoolean(false)
+
+    /** 待执行的强制拉取（推送到达时轮询可能正在执行：本轮结束后补跑，不丢通知） */
+    private val forceAgain = AtomicBoolean(false)
+
+    // ---- 推送（ContentObserver）状态，仅在 ioExecutor 线程写 ----
+    @Volatile
+    private var observerActive = false
+    private var observerAttemptAt = 0L
+    private var lastProviderQueryAt = 0L
+
+    /** 推送是否生效：自驱轮询方（如时区域）据此放宽兜底间隔 */
+    fun isPushActive(): Boolean = observerActive
 
     // ---- 各来源成功票据（失败绝不更新） ----
     private var providerVer: Long = -1L                          // provider 上次成功解析的版本
@@ -83,34 +113,88 @@ object SnapshotStore {
         }
     }
 
+    /** 只读当前快照，不触发轮询 */
+    fun peek(): Snapshot = current
+
     fun current(): Snapshot {
         val now = SystemClock.elapsedRealtime()
         if (now - lastPollAtMs < POLL_INTERVAL_MS) return current
         // 节流判定在调用线程，轮询/解析在后台：被钩调用只付 volatile 读 + CAS
-        if (pollPending.compareAndSet(false, true)) {
-            ioExecutor.execute {
-                try {
-                    val events = synchronized(pollLock) { pollOnce() }
-                    // 监听通知在仓库锁外执行（审查八 #2）
-                    for ((old, new) in events) notifyListeners(old, new)
-                } catch (t: Throwable) {
-                    ProbeLog.log("SNAP-POLL-ERR ${t.javaClass.simpleName}: ${t.message}")
-                } finally {
-                    pollPending.set(false)
-                }
-            }
-        }
+        schedulePoll(force = false)
         return current
     }
 
-    /** 返回需要通知监听器的 (old, new) 列表；在 pollLock 内执行 */
-    private fun pollOnce(): List<Pair<Snapshot, Snapshot>> {
-        lastPollAtMs = SystemClock.elapsedRealtime()
-        // 失败退避期内不重试（成功路径——票据命中——不经过这里的时间成本）
-        val now = lastPollAtMs
-        if (lastFailAtMs != 0L && now - lastFailAtMs < retryDelayMs) return emptyList()
+    /**
+     * force=true（推送到达）：跳过 provider 兜底间隔与失败退避；与上次轮询间隔
+     * 不足 [POLL_INTERVAL_MS] 时推迟到满间隔再拉（尾沿合并，不丢推送）。
+     */
+    private fun schedulePoll(force: Boolean) {
+        // 先记强制标记再抢执行权：抢不到时由在跑/待跑的一轮消费或在 finally 里补跑
+        if (force) forceAgain.set(true)
+        if (!pollPending.compareAndSet(false, true)) return
+        val delayMs = if (force) {
+            (lastPollAtMs + POLL_INTERVAL_MS - SystemClock.elapsedRealtime()).coerceIn(0L, POLL_INTERVAL_MS)
+        } else 0L
+        ioExecutor.schedule(Runnable {
+            val forced = forceAgain.getAndSet(false)
+            try {
+                ensureObserver()
+                val events = synchronized(pollLock) { pollOnce(forced) }
+                // 监听通知在仓库锁外执行（审查八 #2）
+                for ((old, new) in events) notifyListeners(old, new)
+            } catch (t: Throwable) {
+                ProbeLog.log("SNAP-POLL-ERR ${t.javaClass.simpleName}: ${t.message}")
+            } finally {
+                pollPending.set(false)
+                if (forceAgain.get()) schedulePoll(force = true)
+            }
+        }, delayMs, TimeUnit.MILLISECONDS)
+    }
 
-        when (val pr = readProvider()) {
+    /** 在 ioExecutor 线程注册 provider 变更观察者；失败按 [OBSERVER_RETRY_MS] 重试 */
+    private fun ensureObserver() {
+        if (observerActive) return
+        val now = SystemClock.elapsedRealtime()
+        if (observerAttemptAt != 0L && now - observerAttemptAt < OBSERVER_RETRY_MS) return
+        observerAttemptAt = now
+        val ctx = UidResolver.anyContext() ?: return
+        try {
+            ctx.contentResolver.registerContentObserver(
+                ConfigContentProvider.payloadUri(), false,
+                object : ContentObserver(null) {
+                    override fun onChange(selfChange: Boolean, uri: Uri?) {
+                        schedulePoll(force = true)
+                    }
+                },
+            )
+            observerActive = true
+            ProbeLog.log("SNAP-PUSH observer registered")
+        } catch (t: Throwable) {
+            faultOnce("push:${t.javaClass.simpleName}")
+        }
+    }
+
+    /** 返回需要通知监听器的 (old, new) 列表；在 pollLock 内执行 */
+    private fun pollOnce(force: Boolean): List<Pair<Snapshot, Snapshot>> {
+        lastPollAtMs = SystemClock.elapsedRealtime()
+        // 失败退避期内不重试（成功路径——票据命中——不经过这里的时间成本）；
+        // 推送到达说明管理端刚写入了新载荷，不吃退避
+        val now = lastPollAtMs
+        if (!force && lastFailAtMs != 0L && now - lastFailAtMs < retryDelayMs) return emptyList()
+
+        // 推送生效时 provider 只在推送到达或兜底间隔到期时查（省 binder）
+        val queryProvider = force || !observerActive ||
+            now - lastProviderQueryAt >= PROVIDER_SAFETY_MS
+        val pr = if (queryProvider) {
+            lastProviderQueryAt = now
+            readProvider()
+        } else {
+            ProviderRead.Skipped
+        }
+        when (pr) {
+            is ProviderRead.Skipped -> {
+                // 本轮未查 provider：只探文件通道
+            }
             is ProviderRead.Ok -> {
                 // 版本有新变化才消费；版本未变**继续探文件通道**（脑裂修复：管理端
                 // 双写后两通道内容一致，但若 provider 进程曾发布过旧版本、此后管理端
@@ -194,7 +278,7 @@ object SnapshotStore {
                 "(env=${current.environments.size} policies=${current.policies.size} " +
                 "simSlots=${current.sim.slots.size} routes=${current.routes.size})"
         )
-        PolicyResolver.invalidate() // 总开关/排除名单变化必须立刻生效，不吃 250ms TTL
+        PolicyResolver.invalidate() // 总开关/排除名单变化必须立刻生效（缓存按快照身份失效）
         return listOf(old to current)
     }
 
@@ -211,6 +295,7 @@ object SnapshotStore {
         class Ok(val ver: Long, val payload: String?) : ProviderRead
         object Unpublished : ProviderRead
         class Fault(val cause: String) : ProviderRead
+        object Skipped : ProviderRead
     }
 
     /**

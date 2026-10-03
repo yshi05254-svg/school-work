@@ -53,10 +53,22 @@ object WifiInfoSpoofer {
         return info
     }
 
+    /** WifiInfo 字段按名只反射查找一次；缺失记 NONE，避免每次改写重复查找/刷日志 */
+    private val NONE = Any()
+    private val fields = java.util.concurrent.ConcurrentHashMap<String, Any>()
+
     private fun setField(target: Any, name: String, value: Any) {
+        val cached = fields[name]
+        val f = if (cached != null) cached as? java.lang.reflect.Field else try {
+            target.javaClass.getDeclaredField(name).apply { isAccessible = true }
+                .also { fields[name] = it }
+        } catch (t: Throwable) {
+            fields[name] = NONE
+            ProbeLog.log("WIFI-CONN field $name missing: $t")
+            null
+        }
+        f ?: return
         try {
-            val f = target.javaClass.getDeclaredField(name)
-            f.isAccessible = true
             f.set(target, value)
         } catch (t: Throwable) {
             ProbeLog.log("WIFI-CONN set $name failed: $t")
@@ -188,12 +200,12 @@ object ScanResultFactory {
                 sr.centerFreq0 = w.frequencyMhz
                 sr.centerFreq1 = 0
                 // API 33+ getWifiSsid() 读隐藏字段 wifiSsid，只设 SSID 时它返回 null；低版本无此字段，失败忽略
-                wifiSsidOf(w.ssid)?.let {
-                    try {
-                        val f = ScanResult::class.java.getDeclaredField("wifiSsid")
-                        f.isAccessible = true
-                        f.set(sr, it)
-                    } catch (_: Throwable) {
+                scanWifiSsidField?.let { f ->
+                    wifiSsidOf(w.ssid)?.let {
+                        try {
+                            f.set(sr, it)
+                        } catch (_: Throwable) {
+                        }
                     }
                 }
                 out.add(sr)
@@ -211,22 +223,39 @@ object ScanResultFactory {
     fun wifiSsidOf(ssid: String): WifiSsid? {
         if (Build.VERSION.SDK_INT >= 33) {
             try {
-                return WifiSsid::class.java
-                    .getMethod("fromBytes", ByteArray::class.java)
-                    .invoke(null, ssid.toByteArray(Charsets.UTF_8)) as? WifiSsid
+                ssidFromBytes?.let { return it.invoke(null, ssid.toByteArray(Charsets.UTF_8)) as? WifiSsid }
             } catch (_: Throwable) {
             }
         }
         return try {
-            WifiSsid::class.java.getDeclaredMethod("fromString", String::class.java)
-                .invoke(null, "\"$ssid\"") as? WifiSsid
+            ssidFromString?.invoke(null, "\"$ssid\"") as? WifiSsid
+                ?: ssidFromAscii?.invoke(null, ssid) as? WifiSsid
         } catch (_: Throwable) {
             try {
-                WifiSsid::class.java.getDeclaredMethod("createFromAsciiEncoded", String::class.java)
-                    .invoke(null, ssid) as? WifiSsid
+                ssidFromAscii?.invoke(null, ssid) as? WifiSsid
             } catch (_: Throwable) {
                 null
             }
+        }
+    }
+
+    // ---- 反射句柄只查找一次（扫描/连接信息改写是轮询路径） ----
+    private fun staticMethodOrNull(name: String, vararg params: Class<*>): java.lang.reflect.Method? =
+        try {
+            WifiSsid::class.java.getDeclaredMethod(name, *params).apply { isAccessible = true }
+        } catch (_: Throwable) {
+            null
+        }
+
+    private val ssidFromBytes by lazy { staticMethodOrNull("fromBytes", ByteArray::class.java) }
+    private val ssidFromString by lazy { staticMethodOrNull("fromString", String::class.java) }
+    private val ssidFromAscii by lazy { staticMethodOrNull("createFromAsciiEncoded", String::class.java) }
+
+    private val scanWifiSsidField: java.lang.reflect.Field? by lazy {
+        try {
+            ScanResult::class.java.getDeclaredField("wifiSsid").apply { isAccessible = true }
+        } catch (_: Throwable) {
+            null
         }
     }
 

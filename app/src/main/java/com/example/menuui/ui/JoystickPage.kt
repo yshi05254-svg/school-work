@@ -61,12 +61,67 @@ fun JoystickPage() {
         Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(PagePadding),
+        verticalArrangement = Arrangement.spacedBy(SectionSpacing),
     ) {
         SectionCard(
-            title = "速度档位",
-            subtitle = "摇杆推满时的最大速度；小幅推动按比例减速（模拟量）",
+            title = "悬浮窗摇杆",
+            subtitle = if (running) "运行中：在任何应用上拖动摇杆即可移动位置"
+            else "开启后在任何应用上叠加摇杆，推动即连续移动位置",
+        ) {
+            val l = live
+            if (running && l != null) {
+                Text(
+                    "${"%.6f".format(l.lat)}, ${"%.6f".format(l.lon)}",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                HintText(directionText(l.speedMps, l.vNorthMps, l.vEastMps))
+            }
+            if (!running) {
+                Button(
+                    onClick = {
+                        if (Settings.canDrawOverlays(context)) {
+                            startService()
+                        } else {
+                            Toast.makeText(context, "请先授予\"显示在其他应用上层\"权限", Toast.LENGTH_LONG).show()
+                            context.startActivity(
+                                Intent(
+                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                    Uri.parse("package:${context.packageName}"),
+                                ),
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("启动摇杆") }
+                if (!Settings.canDrawOverlays(context)) {
+                    HintText("首次启动需要授予\"显示在其他应用上层\"权限")
+                }
+            } else {
+                Button(
+                    onClick = {
+                        context.startService(
+                            Intent(context, JoystickOverlayService::class.java)
+                                .setAction(JoystickOverlayService.ACTION_STOP_PARK),
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("停止，留在当前位置") }
+                OutlinedButton(
+                    onClick = {
+                        context.startService(
+                            Intent(context, JoystickOverlayService::class.java)
+                                .setAction(JoystickOverlayService.ACTION_STOP),
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("停止，回到原位置") }
+            }
+        }
+
+        SectionCard(
+            title = "速度",
+            subtitle = "摇杆推满时的速度；小幅推动按比例减速",
         ) {
             ChoiceChips(
                 options = JoystickPresets.ALL,
@@ -84,97 +139,26 @@ fun JoystickPage() {
             )
             if (cfg.joystickPresetId == JoystickPresets.CUSTOM.id) {
                 DoubleField(
-                    "自定义速度 (m/s)", cfg.joystickSpeedMps,
-                    { v -> ConfigBus.update { c -> c.copy(joystickSpeedMps = v.coerceIn(0.0, 200.0)) } },
+                    "自定义速度", cfg.joystickSpeedMps,
+                    { v -> ConfigBus.update { c -> c.copy(joystickSpeedMps = v) } },
+                    suffix = "m/s", validate = rangeCheck(0.0, 200.0),
                 )
             }
-            Text(
-                "当前：${"%.1f".format(cfg.joystickSpeedMps)} m/s（≈${"%.0f".format(cfg.joystickSpeedMps * 3.6)} km/h）",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            HintText("当前 ${"%.1f".format(cfg.joystickSpeedMps)} m/s（约 ${"%.0f".format(cfg.joystickSpeedMps * 3.6)} km/h）")
         }
 
-        SectionCard(
-            title = "悬浮窗摇杆",
-            subtitle = "开启后在任何应用上叠加摇杆控件；位置以摇杆推算为准连续更新",
-        ) {
-            if (!running) {
-                Button(
-                    onClick = {
-                        if (Settings.canDrawOverlays(context)) {
-                            startService()
-                        } else {
-                            Toast.makeText(context, "请先授予\"显示在其他应用上层\"权限", Toast.LENGTH_LONG).show()
-                            context.startActivity(
-                                Intent(
-                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                    Uri.parse("package:${context.packageName}"),
-                                ),
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("启动悬浮窗摇杆") }
-            } else {
-                OutlinedButton(
-                    onClick = {
-                        context.startService(
-                            Intent(context, JoystickOverlayService::class.java)
-                                .setAction(JoystickOverlayService.ACTION_STOP),
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("停止摇杆（回落预设位置）") }
-                Button(
-                    onClick = {
-                        context.startService(
-                            Intent(context, JoystickOverlayService::class.java)
-                                .setAction(JoystickOverlayService.ACTION_STOP_PARK),
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("停止并停驻在当前位置") }
-            }
-            Text(
-                "说明：摇杆松手即静止原地；服务被系统杀死时模块会在 6 秒内回落到预设位置，不会按失联前速度继续漂移。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        SectionCard(title = "实时状态") {
-            val l = live
-            if (l == null || !running) {
-                Text("未运行", style = MaterialTheme.typography.bodyMedium)
-            } else {
-                Text(
-                    "位置 ${"%.6f".format(l.lat)}, ${"%.6f".format(l.lon)}",
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                val dir = when {
-                    l.speedMps < 0.05 -> "静止"
-                    else -> {
-                        val deg = (Math.toDegrees(
-                            kotlin.math.atan2(l.vEastMps, l.vNorthMps),
-                        ) + 360.0) % 360.0
-                        val name = arrayOf("北", "东北", "东", "东南", "南", "西南", "西", "西北")[
-                            ((deg + 22.5) / 45.0).toInt() % 8,
-                        ]
-                        "速度 ${"%.2f".format(l.speedMps)} m/s · 方向 $name（${"%.0f".format(deg)}°）"
-                    }
-                }
-                Text(
-                    dir,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    "会话 #${l.epoch} · 心跳失联 6s 自动回落",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        SectionCard(title = "说明", collapsible = true, initiallyExpanded = false) {
+            HintText("松手即原地静止；静止时自动降低刷新频率以省电。")
+            HintText("摇杆被系统关闭时，位置会在移动中 6 秒、静止时 30 秒内回到原位置，不会继续漂移。")
+            HintText("\"停止，留在当前位置\"会把摇杆终点保存为新的环境坐标。")
         }
     }
+}
+
+/** 速度矢量 → "静止" / "速度 x m/s · 方向 东北（45°）" */
+private fun directionText(speedMps: Double, vNorth: Double, vEast: Double): String {
+    if (speedMps < 0.05) return "静止"
+    val deg = (Math.toDegrees(kotlin.math.atan2(vEast, vNorth)) + 360.0) % 360.0
+    val name = arrayOf("北", "东北", "东", "东南", "南", "西南", "西", "西北")[((deg + 22.5) / 45.0).toInt() % 8]
+    return "速度 ${"%.1f".format(speedMps)} m/s · 方向 $name（${"%.0f".format(deg)}°）"
 }

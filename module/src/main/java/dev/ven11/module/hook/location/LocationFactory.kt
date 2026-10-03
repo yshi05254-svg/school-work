@@ -146,40 +146,46 @@ object LocationFactory {
     @Suppress("DEPRECATION")
     private fun clearMockFlag(loc: Location) {
         val cleared = try {
-            // 首选：OPLUS Android 16 实证方法名 setMock(Z)（同步 isMock/isFromMockProvider 双字段）
-            Location::class.java
-                .getDeclaredMethod("setMock", Boolean::class.java)
-                .apply { isAccessible = true }
-                .invoke(loc, false)
+            mockClearer(loc)
             !loc.isMock
         } catch (_: Throwable) {
-            try {
-                // 次选：AOSP 历史方法名 setIsMock(Z)
-                Location::class.java
-                    .getDeclaredMethod("setIsMock", Boolean::class.java)
-                    .apply { isAccessible = true }
-                    .invoke(loc, false)
-                !loc.isMock
-            } catch (_: Throwable) {
-                try {
-                    // 兜底：直接清字段（OPLUS 16 实测字段名 isMock / isFromMockProvider 并存）
-                    Location::class.java.getDeclaredField("isMock")
-                        .apply { isAccessible = true }
-                        .setBoolean(loc, false)
-                    runCatching {
-                        Location::class.java.getDeclaredField("isFromMockProvider")
-                            .apply { isAccessible = true }
-                            .setBoolean(loc, false)
-                    }
-                    !loc.isMock
-                } catch (_: Throwable) {
-                    false
-                }
-            }
+            false
         }
         if (!cleared) {
             ProbeLog.log("LOC-MOCK clear failed sdk=${Build.VERSION.SDK_INT}")
         }
+    }
+
+    /**
+     * 清除方式按 ROM 只探测一次（此前每个交付的 Location 都重走反射查找链）：
+     * setMock(Z)（OPLUS Android 16 实证）→ setIsMock(Z)（AOSP 历史名）→ 直接清字段
+     * isMock / isFromMockProvider；都不可用时为空操作，由调用方读回判定失败。
+     */
+    private val mockClearer: (Location) -> Unit by lazy {
+        fun method(name: String) = try {
+            Location::class.java.getDeclaredMethod(name, Boolean::class.java).apply { isAccessible = true }
+        } catch (_: Throwable) {
+            null
+        }
+        fun field(name: String) = try {
+            Location::class.java.getDeclaredField(name).apply { isAccessible = true }
+        } catch (_: Throwable) {
+            null
+        }
+        val setter = method("setMock") ?: method("setIsMock")
+        if (setter != null) {
+            return@lazy { l: Location -> setter.invoke(l, false); Unit }
+        }
+        val isMock = field("isMock")
+        val fromMock = field("isFromMockProvider")
+        if (isMock != null) {
+            return@lazy { l: Location ->
+                isMock.setBoolean(l, false)
+                runCatching { fromMock?.setBoolean(l, false) }
+                Unit
+            }
+        }
+        return@lazy { _: Location -> }
     }
 
     // ---------------------------------------------------------------- bootIdentity
@@ -204,14 +210,9 @@ object LocationFactory {
         }
     }
 
-    /** hook 进程内拿 ContentResolver（反射 ActivityThread.currentApplication） */
-    private fun appContentResolver(): android.content.ContentResolver? = try {
-        val at = Class.forName("android.app.ActivityThread")
-        val app = at.getMethod("currentApplication").invoke(null) as? android.content.Context
-        app?.contentResolver
-    } catch (_: Throwable) {
-        null
-    }
+    /** hook 进程内拿应用 ContentResolver（currentApplication 由 UidResolver 缓存，免逐次反射） */
+    private fun appContentResolver(): android.content.ContentResolver? =
+        dev.ven11.module.hook.framework.UidResolver.appContext()?.contentResolver
 
     // ---------------------------------------------------------------- 统一入口
 

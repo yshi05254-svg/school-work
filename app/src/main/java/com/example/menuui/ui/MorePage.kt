@@ -1,6 +1,5 @@
 package com.example.menuui.ui
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,7 +10,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -23,35 +21,39 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.menuui.config.ConfigBus
+import com.example.menuui.config.ManagerConfig
 import com.example.menuui.config.SimSlotDraft
 
 /**
- * 更多页：路线回放编辑器（航点增删/速度/循环）+ SIM 卡槽编辑器（快照 sim 段全字段）
- * + 自动发布开关 + 恢复默认配置。
+ * 更多页：SIM 卡槽编辑器（快照 sim 段全字段）+ 发布方式 + 恢复默认配置（需确认）。
  */
 @Composable
 fun MorePage() {
-    val context = LocalContext.current
     val cfg by ConfigBus.state.collectAsState()
+    var confirmReset by remember { mutableStateOf(false) }
 
     Column(
         Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(PagePadding),
+        verticalArrangement = Arrangement.spacedBy(SectionSpacing),
     ) {
         SectionCard(
-            title = "SIM 卡（${cfg.sim.slots.size} 槽）",
-            subtitle = "全局 SIM 配置；预设切换会整体载入该组配套的 SIM，mcc/mnc 字符串保留前导零",
+            title = "SIM 卡",
+            subtitle = if (!cfg.sim.enabled) "关闭（目标应用读取真实 SIM）"
+            else "${cfg.sim.slots.count { it.active }} 张启用 / ${cfg.sim.slots.size} 个卡槽 · 切换位置预设会一并替换",
         ) {
             SwitchRow(
-                title = "启用 SIM 模拟",
+                title = "模拟 SIM 卡",
+                subtitle = "运营商、号码、IMSI、ICCID、IMEI 等",
                 checked = cfg.sim.enabled,
                 onChange = { on -> ConfigBus.update { c -> c.copy(sim = c.sim.copy(enabled = on)) } },
             )
@@ -61,11 +63,9 @@ fun MorePage() {
                 }
                 TextButton(onClick = {
                     ConfigBus.update { c ->
-                        c.copy(
-                            sim = c.sim.copy(
-                                slots = c.sim.slots + SimSlotDraft(subId = c.sim.slots.size + 1),
-                            ),
-                        )
+                        val nextSlot = (c.sim.slots.maxOfOrNull { it.slotIndex } ?: -1) + 1
+                        val nextSub = (c.sim.slots.maxOfOrNull { it.subId } ?: 0) + 1
+                        c.copy(sim = c.sim.copy(slots = c.sim.slots + SimSlotDraft(subId = nextSub, slotIndex = nextSlot)))
                     }
                 }) {
                     Icon(Icons.Filled.Add, null); Text(" 添加卡槽")
@@ -73,29 +73,38 @@ fun MorePage() {
             }
         }
 
-        SectionCard(title = "发布方式", subtitle = "自动发布：改动后 800ms 自动生效；关闭则手动发布") {
+        SectionCard(title = "发布") {
             SwitchRow(
                 title = "自动发布",
+                subtitle = if (cfg.autoPublish) "改动后约 1 秒自动同步到模块"
+                else "改动后需点顶部\"发布\"才会生效",
                 checked = cfg.autoPublish,
                 onChange = { on -> ConfigBus.update { c -> c.copy(autoPublish = on) } },
             )
         }
 
-        OutlinedButton(onClick = {
-            ConfigBus.update { com.example.menuui.config.ManagerConfig() }
-            Toast.makeText(context, "已恢复默认配置（未发布）", Toast.LENGTH_SHORT).show()
-        }, modifier = Modifier.fillMaxWidth()) { Text("恢复默认配置") }
-
-        Button(onClick = {
-            ConfigBus.publishAsync(record = true) { r ->
-                Toast.makeText(
-                    context,
-                    (if (r.ok) "发布成功（${r.via}）" else "发布失败：") + r.message,
-                    if (r.ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG,
-                ).show()
-            }
-        }, modifier = Modifier.fillMaxWidth()) { Text("发布配置") }
+        OutlinedButton(onClick = { confirmReset = true }, modifier = Modifier.fillMaxWidth()) {
+            Text("恢复默认配置", color = MaterialTheme.colorScheme.error)
+        }
     }
+
+    if (confirmReset) {
+        ConfirmDialog(
+            title = "恢复默认配置",
+            text = "位置、应用、SIM、排除名单等全部设置将恢复为默认值，此操作不可撤销。",
+            confirmLabel = "恢复默认",
+            onConfirm = { ConfigBus.update { ManagerConfig() } },
+            onDismiss = { confirmReset = false },
+        )
+    }
+}
+
+private fun digitsError(v: String, lengths: IntRange, name: String): String? = when {
+    v.isEmpty() -> null // 留空 = 不伪造该字段
+    v.any { !it.isDigit() } -> "$name 只能是数字"
+    v.length !in lengths -> if (lengths.first == lengths.last) "$name 应为 ${lengths.first} 位"
+    else "$name 应为 ${lengths.first}~${lengths.last} 位"
+    else -> null
 }
 
 @Composable
@@ -106,32 +115,54 @@ private fun SimSlotCard(index: Int, slot: SimSlotDraft) {
     ) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("卡槽 ${index + 1}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                Text(
+                    "卡槽 ${slot.slotIndex + 1}" + if (slot.carrierName.isNotBlank()) " · ${slot.carrierName}" else "",
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.weight(1f),
+                )
                 IconButton(onClick = {
                     ConfigBus.update { c ->
                         c.copy(sim = c.sim.copy(slots = c.sim.slots.filterIndexed { idx, _ -> idx != index }))
                     }
                 }) { Icon(Icons.Filled.Close, "删除卡槽") }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IntField("subId", slot.subId, { v -> editSlot(index) { it.copy(subId = v) } }, Modifier.weight(1f))
-                IntField("slotIndex", slot.slotIndex, { v -> editSlot(index) { it.copy(slotIndex = v) } }, Modifier.weight(1f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StrField("ICCID", slot.iccid, { v -> editSlot(index) { it.copy(iccid = v) } }, Modifier.weight(1f))
-                StrField("IMSI", slot.imsi, { v -> editSlot(index) { it.copy(imsi = v) } }, Modifier.weight(1f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StrField("IMEI 前 14 位", slot.imeiBase, { v -> editSlot(index) { it.copy(imeiBase = v) } }, Modifier.weight(1f))
-                StrField("号码", slot.phoneNumber, { v -> editSlot(index) { it.copy(phoneNumber = v) } }, Modifier.weight(1f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StrField("MCC", slot.mcc, { v -> editSlot(index) { it.copy(mcc = v.take(3)) } }, Modifier.weight(1f))
-                StrField("MNC", slot.mnc, { v -> editSlot(index) { it.copy(mnc = v.take(2)) } }, Modifier.weight(1f))
-            }
+            SwitchRow(
+                title = "插入此卡",
+                subtitle = "关闭 = 该卡槽显示为无卡",
+                checked = slot.active,
+                onChange = { on -> editSlot(index) { it.copy(active = on) } },
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StrField("运营商", slot.carrierName, { v -> editSlot(index) { it.copy(carrierName = v) } }, Modifier.weight(1f))
-                StrField("国家", slot.countryIso, { v -> editSlot(index) { it.copy(countryIso = v) } }, Modifier.weight(1f))
+                StrField("国家代码", slot.countryIso, { v -> editSlot(index) { it.copy(countryIso = v.trim().lowercase()) } }, Modifier.weight(1f), hint = "cn")
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DigitsField("MCC", slot.mcc, { v -> editSlot(index) { it.copy(mcc = v) } }, 3..3, Modifier.weight(1f))
+                DigitsField("MNC", slot.mnc, { v -> editSlot(index) { it.copy(mnc = v) } }, 2..3, Modifier.weight(1f))
+            }
+            StrField("手机号", slot.phoneNumber, { v -> editSlot(index) { it.copy(phoneNumber = v.trim()) } })
+            StrField(
+                "IMSI", slot.imsi, { v -> editSlot(index) { it.copy(imsi = v.trim()) } },
+                error = digitsError(slot.imsi, 6..15, "IMSI"),
+            )
+            StrField(
+                "ICCID", slot.iccid, { v -> editSlot(index) { it.copy(iccid = v.trim()) } },
+                error = digitsError(slot.iccid, 18..20, "ICCID"),
+            )
+            StrField(
+                "IMEI 前 14 位", slot.imeiBase, { v -> editSlot(index) { it.copy(imeiBase = v.trim()) } },
+                hint = "留空自动生成",
+                error = digitsError(slot.imeiBase, 14..15, "IMEI"),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                IntField(
+                    "subId", slot.subId, { v -> editSlot(index) { it.copy(subId = v) } }, Modifier.weight(1f),
+                    validate = { if (it < 1) "须 ≥ 1" else null },
+                )
+                IntField(
+                    "卡槽序号", slot.slotIndex, { v -> editSlot(index) { it.copy(slotIndex = v) } }, Modifier.weight(1f),
+                    validate = { if (it < 0) "须 ≥ 0" else null },
+                )
             }
         }
     }

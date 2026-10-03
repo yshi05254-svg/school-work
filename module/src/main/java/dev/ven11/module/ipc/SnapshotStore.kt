@@ -112,9 +112,15 @@ object SnapshotStore {
 
         when (val pr = readProvider()) {
             is ProviderRead.Ok -> {
-                // 框架通道健康且发布过配置：以它为准（payload=null 亦可能是"已清空"的合法状态）
-                if (pr.payload == null && pr.ver == providerVer) return emptyList()   // 已处理版本
-                return consume(pr.ver.toString(), pr.payload, via = "provider") { providerVer = pr.ver }
+                // 版本有新变化才消费；版本未变**继续探文件通道**（脑裂修复：管理端
+                // 双写后两通道内容一致，但若 provider 进程曾发布过旧版本、此后管理端
+                // 只走文件通道成功，早退会让本进程永远停留旧 provider 版本）
+                if (pr.ver != providerVer) {
+                    val events = consume(pr.ver.toString(), pr.payload, via = "provider") {
+                        providerVer = pr.ver
+                    }
+                    if (events.isNotEmpty()) return events
+                }
             }
             is ProviderRead.Unpublished -> {
                 // 管理端从未发布过（合法状态，非故障）：走文件通道
@@ -169,6 +175,16 @@ object SnapshotStore {
         retryDelayMs = RETRY_MIN_MS
         if (next === current || (next != null && next.configVersion == current.configVersion)) {
             // 版本未变（含 EMPTY）：维持旧实例，保证各域缓存票据稳定
+            return emptyList()
+        }
+        if (next != null && current.configVersion > 0L && next.configVersion < current.configVersion) {
+            // 过期载荷防回滚（脑裂修复）：provider 通道曾发布过旧版本、此后管理端只
+            // 更新了文件通道（或反之），进程重启/通道恢复时旧通道重放旧载荷——
+            // configVersion 取自管理端 currentTimeMillis，同机单调，小于当前即过期，
+            // 忽略但票据已消费，不会反复重解析
+            ProbeLog.log(
+                "SNAP-IGNORED stale version ${next.configVersion} < ${current.configVersion} via=$via",
+            )
             return emptyList()
         }
         val old = current

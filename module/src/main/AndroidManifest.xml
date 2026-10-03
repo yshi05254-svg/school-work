@@ -29,5 +29,15 @@
             android:authorities="dev.ven11.module.config"
             android:exported="true"
             android:writePermission="dev.ven11.module.permission.CONFIG" />
+
+        <!-- 空唤醒接收器：管理端探测/发布前显式广播拉起模块进程（见 WakeReceiver）。
+             ColorOS 限制后台自启时 provider 获取返回 Unknown URL，广播仍可拉起进程 -->
+        <receiver
+            android:name="dev.ven11.module.publish.WakeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="dev.ven11.module.action.WAKE" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

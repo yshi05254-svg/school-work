@@ -224,20 +224,22 @@ object LocationFactory {
         if (!eff.domainEnabled(PolicyResolver.Domain.LOCATION)) return Decision.PassThrough
         val env = eff.environment
             ?: return if (eff.policy?.strictMode == true) Decision.Block else Decision.PassThrough
-        // boot < 0（BOOT_COUNT 未知）时不走路线/摇杆（它们以 boot 建锚），回落静态环境，
-        // 避免"未知 0 → 真实 N"把首秒路线进度误判为跨重启清零（评审二）
+        // boot < 0（BOOT_COUNT 未知）时不走路线（路线以 boot 建锚），回落摇杆/静态环境，
+        // 避免"未知 0 → 真实 N"把首秒路线进度误判为跨重启清零（评审二）；
+        // 摇杆是纯函数插值不建锚，boot 无关
         val boot = bootIdentityNow()
 
         // 1) 路线：绝对坐标（快照 routes 表取策略绑定的路线）
         val route = eff.policy?.routeId?.takeIf { it != 0L }?.let { eff.payload.routes[it] }
-        if (route != null && route.points.size >= 2) {
+        if (route != null && route.points.size >= 2 && boot >= 0) {
             DynamicLocationSource.routeFix(pkg, uid, boot, route)?.let { fix ->
                 return Decision.Spoof(fromFix(env, provider, realTemplate, fix))
             }
         }
 
-        // 2) 摇杆：环境基点 + 累计位移
-        DynamicLocationSource.joystickFix(pkg, uid, boot, env.lat, env.lon)?.let { fix ->
+        // 2) 摇杆：快照 joystick 段（管理端前台服务实时写入）纯函数航位推算；
+        //    过期（心跳失联）/未启用回落静态环境 + 抖动
+        DynamicLocationSource.joystickFix(eff.payload.joystick)?.let { fix ->
             return Decision.Spoof(fromFix(env, provider, realTemplate, fix))
         }
 

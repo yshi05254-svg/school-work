@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 模块配置通道（签名权限）：与模块同签名时 ContentProvider 直写可用，
+         不必每次回落 su 文件通道 -->
+    <uses-permission android:name="dev.ven11.module.permission.CONFIG" />
+    <!-- 悬浮窗摇杆 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Android 11+ 包可见性：探测/签名比对需要能看到模块包，
+         否则 getPackageInfo 抛 NameNotFound → 首页误报"未安装模块" -->
+    <queries>
+        <package android:name="dev.ven11.module" />
+    </queries>
+
     <application
         android:label="ven11 manager"
         android:allowBackup="false"
@@ -14,5 +29,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 摇杆悬浮窗前台服务：控制虚拟环境位置的实时输入通道，不属于任何
+             系统 FGS 预设类别，按 targetSdk 34+ 规则声明 specialUse -->
+        <service
+            android:name=".joystick.JoystickOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="joystick overlay for virtual location input" />
+        </service>
     </application>
 </manifest>

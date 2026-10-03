@@ -79,11 +79,26 @@ object DynamicLocationSource {
 
     // ---------------------------------------------------------------- 折线推进
 
-    private fun walk(route: Route, meters: Double): Fix {
+    /** 折线段长与总长：路线对象不可变（随快照替换），按身份缓存，免每次定位重算 haversine */
+    private class Geometry(val route: Route, val segLen: DoubleArray, val total: Double)
+
+    @Volatile
+    private var geometry: Geometry? = null
+
+    private fun geometryOf(route: Route): Geometry {
+        geometry?.let { if (it.route === route) return it }
         val pts = route.points
         val segLen = DoubleArray(pts.size - 1) { i -> distanceM(pts[i], pts[i + 1]) }
         var total = 0.0
         for (l in segLen) total += l
+        return Geometry(route, segLen, total).also { geometry = it }
+    }
+
+    private fun walk(route: Route, meters: Double): Fix {
+        val pts = route.points
+        val g = geometryOf(route)
+        val segLen = g.segLen
+        val total = g.total
         if (total <= 0.0) return Fix(pts[0].lat, pts[0].lon, route.speedMps.toFloat(), 0f, "route")
 
         val d = if (route.loop) meters % total else meters.coerceIn(0.0, total - 1e-6)

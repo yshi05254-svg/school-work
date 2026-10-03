@@ -189,6 +189,8 @@ class ClientLanguageHooks(private val module: XposedModule) {
         // 向进程级单一钩子 [RegionalSystemPropertiesHook] 登记 resolver；
         // 值动态取自 overrideLocale，热更新/热移除自然生效，无需 register/unregister 簿记
         RegionalSystemPropertiesHook.registerResolver("language") { key ->
+            // 先按 key 过滤：SystemProperties.get 是框架热路径，无关 key 不做策略解析
+            if (key !in LOCALE_PROP_KEYS) return@registerResolver null
             val lc = currentLocale() ?: return@registerResolver null // 热移除后回归真实值
             when (key) {
                 "persist.sys.locale", "ro.product.locale" -> lc.toLanguageTag()
@@ -356,6 +358,13 @@ class ClientLanguageHooks(private val module: XposedModule) {
     companion object {
         private val INSTALLED = AtomicBoolean(false)
         private const val RESOLVE_INTERVAL_MS = 1_000L
+
+        /** 语言域接管的 SystemProperties key（与 resolver 内 when 分支一致） */
+        private val LOCALE_PROP_KEYS = hashSetOf(
+            "persist.sys.locale", "ro.product.locale",
+            "persist.sys.language", "ro.product.locale.language",
+            "persist.sys.country", "ro.product.locale.region",
+        )
 
         // ---- 进程级状态（boot 类钩子作用于整个进程，owner = 首个加载的包）----
         @Volatile private var ownerPkg: String? = null

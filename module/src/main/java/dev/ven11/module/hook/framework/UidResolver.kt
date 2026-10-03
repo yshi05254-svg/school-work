@@ -43,17 +43,21 @@ object UidResolver {
      * system_server 没有 Application（currentApplication 为 null），退回 SystemContext。
      * 都取不到（极早期）返回 null，调用方按通道故障处理（审查八 #1）。
      */
-    fun anyContext(): Context? {
+    fun anyContext(): Context? = appContext() ?: systemContext()
+
+    /**
+     * 仅应用 Context（currentApplication，成功后缓存）：Application 尚未创建时返回
+     * null、不退 SystemContext——供"按应用身份判定"的调用方（权限自查、BOOT_COUNT）
+     * 免逐次反射使用。
+     */
+    fun appContext(): Context? {
         appCtx?.let { return it }
-        try {
+        return try {
             val at = Class.forName("android.app.ActivityThread")
-            (at.getMethod("currentApplication").invoke(null) as? Context)?.let {
-                appCtx = it
-                return it
-            }
+            (at.getMethod("currentApplication").invoke(null) as? Context)?.also { appCtx = it }
         } catch (_: Throwable) {
+            null
         }
-        return systemContext()
     }
 
     fun pkgOfUid(uid: Int): String? {

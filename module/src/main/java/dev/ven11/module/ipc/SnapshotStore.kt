@@ -113,6 +113,9 @@ object SnapshotStore {
         }
     }
 
+    /** 只读当前快照，不触发轮询 */
+    fun peek(): Snapshot = current
+
     fun current(): Snapshot {
         val now = SystemClock.elapsedRealtime()
         if (now - lastPollAtMs < POLL_INTERVAL_MS) return current
@@ -275,7 +278,7 @@ object SnapshotStore {
                 "(env=${current.environments.size} policies=${current.policies.size} " +
                 "simSlots=${current.sim.slots.size} routes=${current.routes.size})"
         )
-        PolicyResolver.invalidate() // 总开关/排除名单变化必须立刻生效，不吃 250ms TTL
+        PolicyResolver.invalidate() // 总开关/排除名单变化必须立刻生效（缓存按快照身份失效）
         return listOf(old to current)
     }
 

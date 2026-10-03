@@ -122,11 +122,12 @@ class ClientSimHooks(private val module: XposedModule) {
         for (m in tmClass.declaredMethods) {
             if (m.parameterTypes.size > 1) continue
             val entry = tmTable[m.name] ?: continue
+            val tag = "sim.${m.name}"   // 装钩时拼一次，拦截路径不再分配
             // id 带参数个数，避免重载之间冲突（#16）
             module.hook(m).setId("ven11.sim.${m.name}/${m.parameterTypes.size}")
                 .intercept(object : XposedInterface.Hooker {
                     override fun intercept(chain: XposedInterface.Chain): Any? =
-                        dispatch(chain, "sim.${m.name}") { decideTm(chain, m, entry, pkg, uid) }
+                        dispatch(chain, tag) { decideTm(chain, m, entry, pkg, uid) }
                 })
             n++
         }
@@ -146,7 +147,7 @@ class ClientSimHooks(private val module: XposedModule) {
             Decided.Origin
         }
         return when (d) {
-            is Decided.Value -> { hitOnce("$tag=${d.v}"); d.v }
+            is Decided.Value -> { hitOnce(tag, d.v); d.v }
             Decided.Origin -> chain.proceed()
             is Decided.Rethrow -> throw d.t
         }
@@ -244,14 +245,22 @@ class ClientSimHooks(private val module: XposedModule) {
         val code = mcc.trim().takeWhile { it.isDigit() }
         if (code.length < 3) return null
         try {
-            val mt = Class.forName("com.android.internal.telephony.MccTable")
-            val m = mt.getDeclaredMethod("countryCodeForMcc", Int::class.javaPrimitiveType)
-            m.isAccessible = true
-            val v = m.invoke(null, code.toInt()) as? String
+            val v = mccTableMethod?.invoke(null, code.toInt()) as? String
             if (!v.isNullOrEmpty()) return v
         } catch (_: Throwable) {
         }
         return MCC_COUNTRY[code]
+    }
+
+    /** MccTable.countryCodeForMcc 只反射查找一次；不可用为 null（走内置表） */
+    private val mccTableMethod: Method? by lazy {
+        try {
+            Class.forName("com.android.internal.telephony.MccTable")
+                .getDeclaredMethod("countryCodeForMcc", Int::class.javaPrimitiveType)
+                .apply { isAccessible = true }
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     /** 网络侧取值：虚拟值为 null（无小区且无 SIM 配置）→ Origin 保持真实；否则 proceed-first 替换 */
@@ -271,10 +280,11 @@ class ClientSimHooks(private val module: XposedModule) {
         }
         for (m in smClass.declaredMethods) {
             val target = smTarget(m.name) ?: continue
+            val tag = "simsub.${m.name}"
             module.hook(m).setId("ven11.simsub.${m.name}/${m.parameterTypes.size}")
                 .intercept(object : XposedInterface.Hooker {
                     override fun intercept(chain: XposedInterface.Chain): Any? =
-                        dispatch(chain, "simsub.${m.name}") { decideSm(chain, m, target, pkg, uid) }
+                        dispatch(chain, tag) { decideSm(chain, m, target, pkg, uid) }
                 })
             n++
         }
@@ -530,8 +540,19 @@ class ClientSimHooks(private val module: XposedModule) {
      * 漂移。真实订阅覆盖不到的额外虚拟卡保留配置 subId：纯模拟身份，无真实承载
      * （短信/通话/数据不可用），留痕标注。
      */
+    private class Aligned(val sim: SimSnapshot, val real: IntArray, val slots: List<VirtualSimSlot>)
+
+    @Volatile
+    private var alignedCache: Aligned? = null
+
+    /** 对齐结果只随 (快照, 真实拓扑) 变化：按两者身份缓存，热路径免排序/建表 */
     private fun alignedSlots(sim: SimSnapshot): List<VirtualSimSlot> {
         val real = realSubIds
+        alignedCache?.let { if (it.sim === sim && it.real === real) return it.slots }
+        return computeAlignedSlots(sim, real).also { alignedCache = Aligned(sim, real, it) }
+    }
+
+    private fun computeAlignedSlots(sim: SimSnapshot, real: IntArray): List<VirtualSimSlot> {
         if (real.isEmpty()) return sim.slots
         val active = sim.slots.filter { it.active }.sortedBy { it.slotIndex }
         if (active.isEmpty()) return sim.slots
@@ -593,19 +614,34 @@ class ClientSimHooks(private val module: XposedModule) {
     /** createForSubscriptionId(subId) 实例的 subId 存于 mSubId 字段 / 隐藏 getSubId()（#6） */
     private fun instanceSubId(any: Any?): Int? {
         if (any == null) return null
+        val acc = subIdAccessors.getOrPut(any.javaClass) { SubIdAccessor.of(any.javaClass) }
         (try {
-            any.javaClass.getMethod("getSubId").invoke(any) as? Int
+            acc.getter?.invoke(any) as? Int
         } catch (_: Throwable) {
             null
         })?.let { return it }
         return try {
-            val f = any.javaClass.getDeclaredField("mSubId")
-            f.isAccessible = true
-            (f.get(any) as? Int)?.takeIf { it >= 0 }     // 排除 INVALID(-1) / DEFAULT(-2)
+            (acc.field?.get(any) as? Int)?.takeIf { it >= 0 }     // 排除 INVALID(-1) / DEFAULT(-2)
         } catch (_: Throwable) {
             null
         }
     }
+
+    /** getSubId() / mSubId 按类只查找一次（拦截路径不再逐次反射查找） */
+    private class SubIdAccessor(val getter: Method?, val field: java.lang.reflect.Field?) {
+        companion object {
+            fun of(cls: Class<*>) = SubIdAccessor(
+                getter = try { cls.getMethod("getSubId") } catch (_: Throwable) { null },
+                field = try {
+                    cls.getDeclaredField("mSubId").apply { isAccessible = true }
+                } catch (_: Throwable) {
+                    null
+                },
+            )
+        }
+    }
+
+    private val subIdAccessors = java.util.concurrent.ConcurrentHashMap<Class<*>, SubIdAccessor>()
 
     /* ============ 派生值 ============ */
 
@@ -747,13 +783,9 @@ class ClientSimHooks(private val module: XposedModule) {
         false
     }
 
-    /** hook 进程内拿应用 Context（反射 ActivityThread.currentApplication） */
-    private fun appContext(): android.content.Context? = try {
-        val at = Class.forName("android.app.ActivityThread")
-        at.getMethod("currentApplication").invoke(null) as? android.content.Context
-    } catch (_: Throwable) {
-        null
-    }
+    /** hook 进程内拿应用 Context（UidResolver 缓存 currentApplication，免逐次反射） */
+    private fun appContext(): android.content.Context? =
+        dev.ven11.module.hook.framework.UidResolver.appContext()
 
     /* ============ per-快照缓存（#15） ============ */
 
@@ -806,12 +838,21 @@ class ClientSimHooks(private val module: XposedModule) {
 
     /* ============ 日志限频（#15） ============ */
 
-    private val hitSeen: MutableSet<String> =
-        java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap())
+    /** tag → 上次记录的取值摘要：取值不变不拼字符串、不写日志（拦截热路径零分配） */
+    private val hitSeen = java.util.concurrent.ConcurrentHashMap<String, Any>()
 
-    private fun hitOnce(msg: String) {
-        if (hitSeen.size > 512) hitSeen.clear()
-        if (hitSeen.add(msg)) ProbeLog.log("SIM-SPOOF $msg")
+    private val NULL_VALUE = Any()
+
+    private fun hitOnce(tag: String, v: Any?) {
+        // 数组/列表每次都是新实例：按元素数摘要，避免逐次判"新值"刷日志
+        val digest: Any = when (v) {
+            null -> NULL_VALUE
+            is String, is Number, is Boolean -> v as Any
+            is IntArray -> v.size
+            is Collection<*> -> v.size
+            else -> v.javaClass
+        }
+        if (hitSeen.put(tag, digest) != digest) ProbeLog.log("SIM-SPOOF $tag=$v")
     }
 
     /** 同类失败只记一次（对齐 CellInfoFactory.failOnce 语义） */

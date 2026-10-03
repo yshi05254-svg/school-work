@@ -25,6 +25,7 @@ data class Snapshot(
     val environments: List<VirtualEnvironment>,
     val policies: List<Policy>,
     val routes: Map<Long, Route>,
+    val joystick: JoystickState = JoystickState(),
 ) {
     companion object {
         val EMPTY = Snapshot(
@@ -40,6 +41,31 @@ data class Snapshot(
         )
     }
 }
+
+/**
+ * 摇杆快照段：管理端前台服务实时写入的速度矢量 + 基点，模块端按
+ * 位置 = 基点 + v × (now − anchoredAt) 纯函数插值（DynamicLocationSource.joystickFix）。
+ * 契约：
+ *  - 时钟统一用 SystemClock.elapsedRealtime()（跨进程同源，elapsedRealtimeNanos 同理）；
+ *  - 管理端在速度/方向变化时重发基点（base 与 anchoredAt 成对更新，保证插值连续），
+ *    心跳只续期 expiresAtElapsedMs 不动基点；
+ *  - expiresAtElapsedMs 过期（管理端心跳失联）后模块端回落静态环境——防管理端被杀
+ *    后位置按失联前速度无限漂移的"死人开关"，缺省 0 视为立即过期（enabled 无效）；
+ *  - sessionEpoch 仅供诊断/日志（每次速度矢量变化自增），模块端不做锚点状态。
+ */
+data class JoystickState(
+    val enabled: Boolean = false,
+    val baseLat: Double = 0.0,
+    val baseLon: Double = 0.0,
+    /** 北向/东向速度分量（m/s） */
+    val vNorthMps: Double = 0.0,
+    val vEastMps: Double = 0.0,
+    /** 基点坐标对应的 elapsedRealtime 时刻（ms） */
+    val anchoredAtElapsedMs: Long = 0L,
+    /** 失联判定阈值：now > 该值即摇杆失效（ms，elapsedRealtime 时钟） */
+    val expiresAtElapsedMs: Long = 0L,
+    val sessionEpoch: Long = 0L,
+)
 
 /**
  * 策略：pkg=null 为全局回落策略（语言域只认精确命中，见 ClientLanguageHooks）；
@@ -123,6 +149,8 @@ object SnapshotParser {
                 ?.mapObj(::route)
                 ?.associateBy { it.id }
                 .orEmpty(),
+            // 坐标非法的摇杆段整体按未启用处理（回落实侧真实环境的安全侧）
+            joystick = root.optJSONObject("joystick")?.let(::joystick) ?: JoystickState(),
         )
     } catch (_: Throwable) {
         null
@@ -224,6 +252,22 @@ object SnapshotParser {
         speedMps = j.optDouble("speedMps", 8.33),
         loop = j.optBoolean("loop", true),
     )
+
+    private fun joystick(j: JSONObject): JoystickState {
+        val js = JoystickState(
+            enabled = j.optBoolean("enabled", false),
+            baseLat = j.optDouble("baseLat", 0.0),
+            baseLon = j.optDouble("baseLon", 0.0),
+            vNorthMps = j.optDouble("vNorthMps", 0.0),
+            vEastMps = j.optDouble("vEastMps", 0.0),
+            anchoredAtElapsedMs = j.optLong("anchoredAtElapsedMs", 0L),
+            expiresAtElapsedMs = j.optLong("expiresAtElapsedMs", 0L),
+            sessionEpoch = j.optLong("sessionEpoch", 0L),
+        )
+        val valid = js.baseLat.isFinite() && js.baseLon.isFinite() &&
+            js.vNorthMps.isFinite() && js.vEastMps.isFinite()
+        return if (valid) js else JoystickState()
+    }
 
     // ---- org.json 小工具 ----
 

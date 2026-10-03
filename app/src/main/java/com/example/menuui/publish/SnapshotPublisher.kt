@@ -9,6 +9,8 @@ import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import java.io.File
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /**
  * 快照下发器（管理端 → hook 模块的配置写入端）。
@@ -191,18 +193,56 @@ object SnapshotPublisher {
      * 节流 [FILE_DUALWRITE_MIN_MS]——摇杆输入发布 250ms 一次，su 每次落盘
      * 有 fork 开销，文件通道 2s 内的最新快照足够（模块侧 1s 轮询 + 摇杆
      * 心跳 3s 续期，过期阈值 6s，2s 粒度不产生断档）。
+     * 节流窗口内的发布不丢弃：只保留最新一份，窗口到期补写（尾沿）——
+     * 否则窗口内的最后一次发布（如摇杆关闭）永远到不了文件通道，读文件的
+     * 进程要等摇杆段过期（静止态 30s）才回落。su 次数不因此增加。
      */
     private fun maybeDualWriteFile(context: Context, json: String) {
-        val now = SystemClock.elapsedRealtime()
-        if (now - lastFileWriteAt < FILE_DUALWRITE_MIN_MS) return
-        lastFileWriteAt = now
+        val appCtx = context.applicationContext
+        synchronized(fileLock) {
+            val wait = lastFileWriteAt + FILE_DUALWRITE_MIN_MS - SystemClock.elapsedRealtime()
+            if (wait > 0L || flushScheduled) {
+                pendingFileJson = json
+                if (!flushScheduled) {
+                    flushScheduled = true
+                    fileScheduler.schedule(Runnable { flushPendingFile(appCtx) }, wait, TimeUnit.MILLISECONDS)
+                }
+                return
+            }
+            lastFileWriteAt = SystemClock.elapsedRealtime()
+        }
         runCatching { publishViaSu(context, json) }
     }
 
+    private fun flushPendingFile(context: Context) {
+        val json = synchronized(fileLock) {
+            flushScheduled = false
+            lastFileWriteAt = SystemClock.elapsedRealtime()
+            pendingFileJson.also { pendingFileJson = null }
+        } ?: return
+        runCatching { publishViaSu(context, json) }
+    }
+
+    private val fileLock = Any()
     private var lastFileWriteAt = 0L
+    private var pendingFileJson: String? = null
+    private var flushScheduled = false
+
+    /** 尾沿补写调度线程（daemon，只承载节流到期后的一次 su 落盘） */
+    private val fileScheduler = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "ven11-file-dualwrite").apply { isDaemon = true }
+    }
+
+    /** su 落盘串行化：发布线程与尾沿补写线程共用同一组缓存文件 */
+    private val suLock = Any()
 
     /** 文件通道兜底（su 落盘双路径：/data/local/tmp + /data/system，应用域与 system_server 域都可读） */
     private fun fallbackToFile(context: Context, json: String, why: String): Result {
+        // 本次直写即最新：丢弃待补写的旧载荷（模块侧另有 configVersion 防回滚兜底）
+        synchronized(fileLock) {
+            pendingFileJson = null
+            lastFileWriteAt = SystemClock.elapsedRealtime()
+        }
         val r = publishViaSu(context, json)
         val note = "已双路径落盘（应用域 + system_server 域）"
         val prefix = if (r.ok) "$why；已回落文件通道" else why
@@ -219,7 +259,11 @@ object SnapshotPublisher {
      * /data/system/ven11 供 system_server 域（目录须 system 属主 700，文件 644 +
      * restorecon）。system 段尽力而为（`；`分隔），退出码以 local 段文件存在为准。
      */
-    private fun publishViaSu(context: Context, json: String): Result {
+    private fun publishViaSu(context: Context, json: String): Result = synchronized(suLock) {
+        publishViaSuLocked(context, json)
+    }
+
+    private fun publishViaSuLocked(context: Context, json: String): Result {
         val cache = File(context.cacheDir, "ven11-snapshot.json.tmp").apply { writeText(json) }
         val backup = File(context.cacheDir, "ven11-snapshot.json")
         if (backup.exists()) backup.delete()

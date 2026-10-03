@@ -41,6 +41,18 @@ object RegionalSystemPropertiesHook {
      */
     private val resolvers = ConcurrentHashMap<String, (String) -> String?>()
 
+    /**
+     * 拦截器遍历用的只读快照（注册/注销时重建）：SystemProperties.get 是框架热路径，
+     * 逐次迭代 ConcurrentHashMap 会为每次调用分配迭代器
+     */
+    @Volatile
+    private var resolverArray: Array<(String) -> String?> = emptyArray()
+
+    @Synchronized
+    private fun rebuildResolverArray() {
+        resolverArray = resolvers.values.toTypedArray()
+    }
+
     @Volatile
     private var hookCount = 0
 
@@ -57,10 +69,12 @@ object RegionalSystemPropertiesHook {
     /** tag 用于卸载/去重；重复注册同 tag 覆盖旧解析器 */
     fun registerResolver(tag: String, resolver: (String) -> String?) {
         resolvers[tag] = resolver
+        rebuildResolverArray()
     }
 
     fun unregisterResolver(tag: String) {
         resolvers.remove(tag)
+        rebuildResolverArray()
     }
 
     /** 幂等：首次调用安装钩子，之后调用仅返回已装数量（进程级防重复安装） */
@@ -78,7 +92,7 @@ object RegionalSystemPropertiesHook {
                     override fun intercept(chain: XposedInterface.Chain): Any? {
                         val key = chain.getArg(0) as? String ?: return chain.proceed()
                         overrides[key]?.let { return it }
-                        for (r in resolvers.values) {
+                        for (r in resolverArray) {
                             r(key)?.let { return it }
                         }
                         return chain.proceed()

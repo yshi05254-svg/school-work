@@ -36,6 +36,8 @@ class ClientTelephonyListenerHooks(private val module: XposedModule) {
 
     private companion object {
         const val HIT_INTERVAL_MS = 30_000L
+        val REG_STATE_SETTERS = arrayOf("setVoiceRegState", "setDataRegState")
+        val NET_TYPE_SETTERS = arrayOf("setVoiceNetworkType", "setDataNetworkType")
     }
 
     private val lastHit = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -195,27 +197,17 @@ class ClientTelephonyListenerHooks(private val module: XposedModule) {
         runCatching { out.setRoaming(false) }.onFailure { missed.add("setRoaming") }
         // setVoiceRegState/setDataRegState/…是隐藏 API（SDK 36 stub 无，审查八修正）：
         // 与 setCellIdentity 同一反射路径
-        for (setter in listOf(
-            Triple("setVoiceRegState", intArrayOf(ServiceState.STATE_IN_SERVICE), "setVoiceRegState"),
-            Triple("setDataRegState", intArrayOf(ServiceState.STATE_IN_SERVICE), "setDataRegState"),
-        )) {
-            val (name, args, label) = setter
+        for (name in REG_STATE_SETTERS) {
             runCatching {
-                ServiceState::class.java
-                    .getDeclaredMethod(name, Int::class.java)
-                    .apply { isAccessible = true }
-                    .invoke(out, args[0])
-            }.onFailure { missed.add(label) }
+                ssIntSetter(name)!!.invoke(out, ServiceState.STATE_IN_SERVICE)
+            }.onFailure { missed.add(name) }
         }
         val netType = CellInfoFactory.ratTypeOf(serving.radioType)
             ?.let { CellInfoFactory.networkTypeOf(it) }
         if (netType != null) {
-            for (name in listOf("setVoiceNetworkType", "setDataNetworkType")) {
+            for (name in NET_TYPE_SETTERS) {
                 runCatching {
-                    ServiceState::class.java
-                        .getDeclaredMethod(name, Int::class.java)
-                        .apply { isAccessible = true }
-                        .invoke(out, netType)
+                    ssIntSetter(name)!!.invoke(out, netType)
                 }.onFailure { missed.add(name) }
             }
         } else {
@@ -230,10 +222,7 @@ class ClientTelephonyListenerHooks(private val module: XposedModule) {
         val identity = CellInfoFactory.buildIdentity(serving)
         if (identity != null) {
             runCatching {
-                ServiceState::class.java
-                    .getDeclaredMethod("setCellIdentity", android.telephony.CellIdentity::class.java)
-                    .apply { isAccessible = true }
-                    .invoke(out, identity)
+                ssSetCellIdentity!!.invoke(out, identity)
             }.onFailure { missed.add("setCellIdentity") }
         } else {
             missed.add("cellIdentity-build")
@@ -325,6 +314,27 @@ class ClientTelephonyListenerHooks(private val module: XposedModule) {
 
         failOnce("ss-shape", "CELL-SS no known component shape (named=$namedField) rat=${rat.name}")
         return null
+    }
+
+    // ---- ServiceState 隐藏 setter：按名只反射查找一次（缺失记 null，调用处按失败计入 missed）----
+
+    private val ssIntSetters = java.util.concurrent.ConcurrentHashMap<String, java.util.Optional<Method>>()
+
+    private fun ssIntSetter(name: String): Method? = ssIntSetters.getOrPut(name) {
+        java.util.Optional.ofNullable(
+            runCatching {
+                ServiceState::class.java.getDeclaredMethod(name, Int::class.java)
+                    .apply { isAccessible = true }
+            }.getOrNull(),
+        )
+    }.orElse(null)
+
+    private val ssSetCellIdentity: Method? by lazy {
+        runCatching {
+            ServiceState::class.java
+                .getDeclaredMethod("setCellIdentity", android.telephony.CellIdentity::class.java)
+                .apply { isAccessible = true }
+        }.getOrNull()
     }
 
     /** 沿父类链找满足 [pred] 的第一个声明字段 */

@@ -293,7 +293,7 @@ class ClientLocationHooks(private val module: XposedModule) {
                     if (!eff.domainEnabled(dev.ven11.module.ipc.PolicyResolver.Domain.LOCATION)) return real
                     if (eff.environment == null) return real
                     val provider = chain.args.firstOrNull() as? String ?: return real
-                    val want = provider in listOf("gps", "fused", "network")
+                    val want = provider in SPOOFED_PROVIDERS
                     (if (want) true else real as? Boolean ?: real)
                 }.getOrElse { real }
             }
@@ -391,6 +391,9 @@ class ClientLocationHooks(private val module: XposedModule) {
 
     private companion object {
         const val LOG_FIRST_N = 20
+
+        /** isProviderEnabled 报为开启的主 provider（常量集合，拦截路径不再逐次建表） */
+        val SPOOFED_PROVIDERS = setOf("gps", "fused", "network")
         const val LOG_EVERY = 50
     }
 }

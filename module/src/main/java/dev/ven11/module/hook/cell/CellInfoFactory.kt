@@ -88,7 +88,8 @@ object CellInfoFactory {
     private val NONE = Any()
     private val classCache = ConcurrentHashMap<String, Class<*>>()
     private val ctorCache = ConcurrentHashMap<String, Any?>()
-    private val fieldCache = ConcurrentHashMap<String, Any?>()
+    /** 类 → (字段名 → Field|NONE)：两级表，查找不再逐次拼 "类名#字段名" 键 */
+    private val fieldCache = ConcurrentHashMap<Class<*>, ConcurrentHashMap<String, Any>>()
     private val identityFields = ConcurrentHashMap<Class<*>, Field>()
     private val signalFields = ConcurrentHashMap<Class<*>, Any>()   // 缺失记 NONE，防反复查找
 
@@ -119,9 +120,8 @@ object CellInfoFactory {
 
     /** 沿父类链查找（mTimeStamp 等在 CellInfo 基类）；缺失字段静默跳过（版本差异属预期） */
     private fun fieldOf(cls: Class<*>, name: String): Field? {
-        val key = "${cls.name}#$name"
-        (fieldCache[key] as? Field)?.let { return it }
-        if (fieldCache.containsKey(key)) return null
+        val byName = fieldCache.getOrPut(cls) { ConcurrentHashMap() }
+        byName[name]?.let { return it as? Field }
         var c: Class<*>? = cls
         var f: Field? = null
         while (c != null && f == null) {
@@ -129,7 +129,7 @@ object CellInfoFactory {
             c = c.superclass
         }
         f?.isAccessible = true
-        fieldCache[key] = f ?: NONE
+        byName[name] = f ?: NONE
         return f
     }
 
@@ -247,22 +247,33 @@ object CellInfoFactory {
      */
     private fun setLacAndCid(loc: GsmCellLocation, lac: Int, cid: Int) {
         try {
-            GsmCellLocation::class.java
-                .getDeclaredMethod("setLacAndCid", Int::class.java, Int::class.java)
-                .apply { isAccessible = true }
-                .invoke(loc, lac, cid)
+            gsmSetLacAndCid?.invoke(loc, lac, cid)
         } catch (_: Throwable) {
         }
     }
 
     private fun setPsc(loc: GsmCellLocation, psc: Int) {
         try {
+            gsmSetPsc?.invoke(loc, psc)
+        } catch (_: Throwable) {
+        }
+    }
+
+    /** 隐藏 setter 只反射查找一次（getCellLocation 是应用轮询路径） */
+    private val gsmSetLacAndCid by lazy {
+        runCatching {
+            GsmCellLocation::class.java
+                .getDeclaredMethod("setLacAndCid", Int::class.java, Int::class.java)
+                .apply { isAccessible = true }
+        }.getOrNull()
+    }
+
+    private val gsmSetPsc by lazy {
+        runCatching {
             GsmCellLocation::class.java
                 .getDeclaredMethod("setPsc", Int::class.java)
                 .apply { isAccessible = true }
-                .invoke(loc, psc)
-        } catch (_: Throwable) {
-        }
+        }.getOrNull()
     }
 
     // ---- 内部构造 ------------------------------------------------------

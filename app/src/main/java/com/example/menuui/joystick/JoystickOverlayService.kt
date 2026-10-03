@@ -34,8 +34,11 @@ import kotlin.math.hypot
  * 发布契约（与模块 DynamicLocationSource.joystickFix 对应）：
  *  - 100ms tick 积分推算当前位置；速度矢量变化 ≥250ms 节流发布（基点=当前积分位置、
  *    anchoredAt=now、epoch++），模块端按 基点+v×Δt 连续插值，快照 1s 轮询也不跳变；
- *  - 静止也每 3s 心跳发布（只续期 expiresAt=now+6s，不动基点，位置连续）；
- *  - 服务被杀不补发 → 模块 6s 内过期回落静态环境（死人开关）；
+ *  - 移动中每 3s 心跳发布（续期 expiresAt=now+6s，位置连续）；
+ *  - 静止（摇杆松手、速度为零）进入空闲态省电：停掉 100ms tick，只按 12s 心跳
+ *    唤醒，过期阈值放宽到 30s（静止段外推结果恒为基点，放宽不会产生漂移）；
+ *    再次触摸立即恢复 100ms tick，速度变化即时发布并收紧回 6s 过期；
+ *  - 服务被杀不补发 → 模块在过期阈值内（移动 6s / 静止 30s）回落静态环境（死人开关）；
  *  - 停止：发布 enabled=false 显式关闭；"停驻"先把最终位置写回环境再关闭——
  *    位置不跳回预设起点。
  */
@@ -50,6 +53,10 @@ class JoystickOverlayService : Service() {
         const val HEARTBEAT_MS = 3000L
         const val INPUT_PUBLISH_MS = 250L
         const val TICK_MS = 100L
+
+        /** 静止态心跳与过期（功耗：每次发布含 binder 写入与 su 落盘） */
+        const val IDLE_HEARTBEAT_MS = 12_000L
+        const val IDLE_EXPIRES_MS = 30_000L
 
         private val _running = MutableStateFlow(false)
         val running: StateFlow<Boolean> = _running
@@ -80,12 +87,31 @@ class JoystickOverlayService : Service() {
     private var lastTickNs = 0L
     private var overlayAdded = false
 
+    /** 空闲态：tick 只在下次心跳到期时唤醒（无输入、速度为零且零速已发布） */
+    private var idle = false
+
     private val tickRunnable = object : Runnable {
         override fun run() {
             if (!overlayAdded) return
             tick()
-            handler.postDelayed(this, TICK_MS)
+            // 停下的速度变化须已发布（250ms 节流可能推迟一拍），否则继续 100ms tick
+            idle = inputNx == 0f && inputNy == 0f && !isMoving() &&
+                lastPublishedVn == 0.0 && lastPublishedVe == 0.0
+            val delay = if (idle) {
+                (lastPublishAt + IDLE_HEARTBEAT_MS - SystemClock.elapsedRealtime())
+                    .coerceIn(TICK_MS, IDLE_HEARTBEAT_MS)
+            } else TICK_MS
+            handler.postDelayed(this, delay)
         }
+    }
+
+    /** 触摸输入到达：空闲态立即恢复 100ms tick（积分起点重置，避免把空闲时长算进位移） */
+    private fun wakeTick() {
+        if (!overlayAdded || !idle) return
+        idle = false
+        lastTickNs = System.nanoTime()
+        handler.removeCallbacks(tickRunnable)
+        handler.post(tickRunnable)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -128,6 +154,7 @@ class JoystickOverlayService : Service() {
         inputNx = 0f
         inputNy = 0f
         epoch = 1L
+        idle = false
         lastTickNs = System.nanoTime()
 
         val root = buildOverlay()
@@ -207,6 +234,7 @@ class JoystickOverlayService : Service() {
             onMove = { nx, ny ->
                 inputNx = nx
                 inputNy = ny
+                if (nx != 0f || ny != 0f) wakeTick()
             }
         }
         joystickView = stick
@@ -240,8 +268,9 @@ class JoystickOverlayService : Service() {
 
         val now = SystemClock.elapsedRealtime()
         val velocityChanged = !(vNorth == lastPublishedVn && vEast == lastPublishedVe)
+        val heartbeatMs = if (isMoving()) HEARTBEAT_MS else IDLE_HEARTBEAT_MS
         when {
-            now - lastPublishAt >= HEARTBEAT_MS ->
+            now - lastPublishAt >= heartbeatMs ->
                 publishJoystick(reanchor = true, bumpEpoch = false)
             velocityChanged && now - lastPublishAt >= INPUT_PUBLISH_MS ->
                 publishJoystick(reanchor = true, bumpEpoch = true)
@@ -269,7 +298,7 @@ class JoystickOverlayService : Service() {
                 vNorthMps = vNorth,
                 vEastMps = vEast,
                 anchoredAtElapsedMs = anchoredAt,
-                expiresAtElapsedMs = anchoredAt + EXPIRES_MS,
+                expiresAtElapsedMs = anchoredAt + if (isMoving()) EXPIRES_MS else IDLE_EXPIRES_MS,
                 epoch = epoch,
             ),
         )
@@ -278,6 +307,8 @@ class JoystickOverlayService : Service() {
         lastPublishedVn = vNorth
         lastPublishedVe = vEast
     }
+
+    private fun isMoving(): Boolean = vNorth != 0.0 || vEast != 0.0
 
     // ---------------------------------------------------------------- 停止
 
@@ -288,6 +319,7 @@ class JoystickOverlayService : Service() {
         }
         handler.removeCallbacks(tickRunnable)
         overlayAdded = false
+        idle = false
         inputNx = 0f
         inputNy = 0f
         vNorth = 0.0

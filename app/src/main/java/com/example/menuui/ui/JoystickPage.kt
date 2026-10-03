@@ -137,7 +137,7 @@ fun JoystickPage() {
                 ) { Text("停止并停驻在当前位置") }
             }
             Text(
-                "说明：摇杆松手即静止原地；服务被系统杀死时模块会在 6 秒内回落到预设位置，不会按失联前速度继续漂移。",
+                "说明：摇杆松手即静止原地（静止时降低心跳频率以省电）；服务被系统杀死时模块会在 6 秒内（移动中）或 30 秒内（静止时）回落到预设位置，不会按失联前速度继续漂移。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -170,7 +170,7 @@ fun JoystickPage() {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    "会话 #${l.epoch} · 心跳失联 6s 自动回落",
+                    "会话 #${l.epoch} · 心跳失联 ${if (l.speedMps > 0.0) 6 else 30}s 自动回落",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

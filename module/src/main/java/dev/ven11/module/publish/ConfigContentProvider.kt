@@ -62,6 +62,9 @@ class ConfigContentProvider : ContentProvider() {
             throw IllegalArgumentException("payload is not valid JSON", it)
         }
         writeAtomic(json)
+        // 推送变更（功耗）：注册了 ContentObserver 的被钩进程即时拉取，
+        // 无需高频 binder 轮询 version；通知失败不影响写入结果
+        runCatching { context?.contentResolver?.notifyChange(payloadUri(), null) }
         return uri
     }
 

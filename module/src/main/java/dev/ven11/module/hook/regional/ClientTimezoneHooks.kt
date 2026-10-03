@@ -27,8 +27,9 @@ import java.util.TimeZone
  * "是否伪装、伪装成什么"由 [refreshFromSnapshot] 重新判定——
  *  - 启动时已有有效策略 → 立即应用；
  *  - 运行中出现/变更策略 → 应用新值（register 属性 + 重建默认时区 + TZ 环境变量）；
- *    驱动源有二：快照版本变化回调（有其他钩子活动的进程，≤1s）+ 自驱轮询线程
- *    （静止进程也能感知，文件读取经 SnapshotStore 节流 ≤1 次/秒）；
+ *    驱动源有二：快照版本变化回调（provider 推送即时到达；无推送时由其他钩子
+ *    活动触发，≤1s）+ 自驱轮询线程（静止进程也能感知；推送生效时降为
+ *    [POLL_INTERVAL_PUSH_MS] 兜底，否则 [POLL_INTERVAL_MS]）；
  *  - masterEnabled 关闭 / 包或 UID 进排除名单 / 时区域禁用 / 策略删除 / timezoneId
  *    非法 → [revert] 恢复真实时区：还原装钩时捕获的默认时区 / TZ / user.timezone
  *    原值（不是清空——应用装钩前可能自设过这些值）。
@@ -78,6 +79,12 @@ class ClientTimezoneHooks(private val module: XposedModule) {
         private const val POLL_INTERVAL_MS = 1_000L
 
         /**
+         * 推送生效时的兜底轮询间隔（功耗）：每个被钩进程一条线程，1s 唤醒在多进程下
+         * 累积可观；变更由 SnapshotStore 推送 → 监听回调即时驱动，轮询只兜漏推送
+         */
+        private const val POLL_INTERVAL_PUSH_MS = 15_000L
+
+        /**
          * Olson ID 全集（进程内静态数据，装钩时取一次缓存）。此前每次刷新都调
          * TimeZone.getAvailableIDs()：分配 ~600 个字符串再线性查找，纯浪费。
          */
@@ -120,8 +127,8 @@ class ClientTimezoneHooks(private val module: XposedModule) {
         //    a. 快照版本变化回调——有其他域钩子活动（定位/WiFi/SP 查询等）的进程
         //       由轮询触发，延迟 ≤1s；
         //    b. 自驱轮询线程——应用长时间不触发任何被钩方法时也能感知策略变更/
-        //       关闭（否则静止进程会永久停留在旧伪装值）。内部经 SnapshotStore 的
-        //       1s 节流，文件读取至多 1 次/秒，开销可忽略。
+        //       关闭（否则静止进程会永久停留在旧伪装值）。provider 推送生效后
+        //       变更由回调 a 即时驱动，轮询降为 15s 兜底；推送不可用时保持 1s。
         SnapshotStore.registerListener("timezone") { _, _ -> refreshFromSnapshot() }
         startPoller()
 
@@ -147,8 +154,9 @@ class ClientTimezoneHooks(private val module: XposedModule) {
         if (pollerStarted.compareAndSet(false, true)) {
             Thread({
                 while (true) {
+                    val interval = if (SnapshotStore.isPushActive()) POLL_INTERVAL_PUSH_MS else POLL_INTERVAL_MS
                     try {
-                        Thread.sleep(POLL_INTERVAL_MS)
+                        Thread.sleep(interval)
                     } catch (_: InterruptedException) {
                         // 进程退出场景，静默结束
                         return@Thread

@@ -2,6 +2,7 @@ package com.example.menuui.geo
 
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -48,6 +49,16 @@ object CoordTransform {
         return LatLon(wLat, wLon)
     }
 
+    /** 球面距离（米，haversine），同一坐标系内比较即可 */
+    fun distanceMeters(a: LatLon, b: LatLon): Double {
+        val dLat = Math.toRadians(b.lat - a.lat)
+        val dLon = Math.toRadians(b.lon - a.lon)
+        val h = sin(dLat / 2).let { it * it } +
+            cos(Math.toRadians(a.lat)) * cos(Math.toRadians(b.lat)) * sin(dLon / 2).let { it * it }
+        return 2 * EARTH_RADIUS_M * asin(sqrt(h.coerceIn(0.0, 1.0)))
+    }
+
+    private const val EARTH_RADIUS_M = 6371008.8
     private const val MAX_ITER = 20
     private const val EPS = 1e-9
 

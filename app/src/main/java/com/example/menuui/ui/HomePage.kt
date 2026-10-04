@@ -62,6 +62,22 @@ fun HomePage() {
             )
         }
 
+        SectionCard(
+            title = "定位伪装执行端",
+            subtitle = "开启后由 system_server 直接改写交给应用的定位，" +
+                "目标应用无需读取模块配置（微信等受限应用也生效）；" +
+                "关闭则回退到应用内伪装（应急，免重装模块）",
+        ) {
+            SwitchRow(
+                title = "serverLocation",
+                checked = cfg.serverLocation,
+                onChange = { on ->
+                    ConfigBus.update { it.copy(serverLocation = on) }
+                    ConfigBus.publishAsync(record = false)
+                },
+            )
+        }
+
         SectionCard(title = "模块通道状态", subtitle = "探测模块安装 / provider 存活 / 签名") {
             val text = when (val p = probe) {
                 is Probe.Ok ->

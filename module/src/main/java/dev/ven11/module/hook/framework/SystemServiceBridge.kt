@@ -6,6 +6,7 @@ import android.net.wifi.ScanResult
 import android.util.Log
 import dev.ven11.module.ProbeLog
 import dev.ven11.module.Ven11Module
+import dev.ven11.module.hook.framework.location.ServerLocationHooks
 import dev.ven11.module.hook.wifi.ScanResultFactory
 import dev.ven11.module.hook.wifi.WifiInfoSpoofer
 import dev.ven11.module.hook.wifi.WifiPermissionGate
@@ -36,6 +37,14 @@ object SystemServiceBridge {
         // startOtherServices 后段用新建的 PathClassLoader 加载——onSystemServerStarting
         // 时该 classloader 还不存在，立即路径必然 not found（审查七 #1b）
         installDeferredWifiHooks(module, cl)
+        // 方案B：服务端定位伪装（定位类都在主 services.jar，开机即可加载；
+        // 独立 runCatching，WiFi 链路任何问题不影响定位钩安装，反之亦然）
+        runCatching {
+            val m = ServerLocationHooks.install(module, cl)
+            if (m >= 0) ProbeLog.log("SRVLOC-BRIDGE armed=$m")
+        }.onFailure {
+            ProbeLog.log("SRVLOC-BRIDGE-ERR ${it.javaClass.simpleName}: ${it.message}")
+        }
         return n
     }
 

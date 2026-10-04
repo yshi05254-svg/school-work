@@ -72,7 +72,12 @@ object CallbackHooks {
             }
         }
         if (targets.isEmpty()) {
-            ProbeLog.log("$tag: no delivery methods found on ${cb.javaClass.name}")
+            // 诊断：部分 ROM 改过回调方法名（实测 addNmeaListener/registerGnssMeasurementsCallback
+            // 均为变体名），把回调类上实际存在的方法名打进日志便于对齐
+            ProbeLog.log(
+                "$tag: no delivery methods found on ${cb.javaClass.name} " +
+                    "methods=${cb.javaClass.declaredMethods.joinToString(",") { it.name }}",
+            )
             return 0
         }
         var n = 0

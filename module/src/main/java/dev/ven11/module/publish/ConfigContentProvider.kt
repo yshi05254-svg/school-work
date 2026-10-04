@@ -2,17 +2,22 @@ package dev.ven11.module.publish
 
 import android.content.ContentProvider
 import android.content.ContentValues
+import android.content.pm.PackageManager
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
+import android.os.Binder
+import android.os.Process
+import dev.ven11.module.model.SnapshotParser
 import java.io.File
 import org.json.JSONObject
 
 /**
  * 快照载荷的跨进程通道（审查八 #1）：管理端 insert 写入，被钩进程（普通应用 /
- * system_server / phone）query 读取。binder 通道不受 /data/local/tmp 的 SELinux
- * 目录限制，三类进程读到同一版本；读侧不设权限（被钩的目标应用要读），写侧由
- * manifest 的签名权限保护（android:writePermission），签名不符的第三方无法注入。
+ * system_server / phone）query 读取。binder 通道不受 SELinux 目录限制，三类进程
+ * 读到同一版本；读侧按调用方放行（[callerAllowed]：系统 uid / 模块自身 / 持签名
+ * 权限的管理端 / 快照策略内的目标应用），写侧由 manifest 的签名权限保护
+ * （android:writePermission），签名不符的第三方无法注入。
  *
  * 载荷整体单文件存放于 device-protected storage：directBoot 期间 system_server
  * 早读可命中，重启后无需打开管理端。版本取载荷文件的 mtime——读侧先做版本轻查询，
@@ -33,6 +38,7 @@ class ConfigContentProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
         sortOrder: String?,
     ): Cursor? {
+        if (!callerAllowed()) return null
         val f = payloadFile()
         val ver = f?.lastModified() ?: 0L
         val cols = projection ?: ALL_COLUMNS
@@ -73,6 +79,48 @@ class ConfigContentProvider : ContentProvider() {
 
     override fun getType(uri: Uri): String = TYPE
 
+    // ---------------------------------------------------------------- 读取鉴权
+
+    /** 快照衍生的读侧 ACL：mtime 做缓存键，精确包名 / 全局策略+排除名单 */
+    private class ReaderAcl(
+        val mtime: Long,
+        val exact: Set<String>,
+        val global: Boolean,
+        val excluded: Set<String>,
+    ) {
+        fun allows(pkg: String) = pkg in exact || (global && pkg !in excluded)
+    }
+
+    @Volatile private var acl: ReaderAcl? = null
+
+    /**
+     * 只放行四类调用方：系统 uid（system_server、phone）、模块自己、持 CONFIG
+     * 签名权限的管理端、快照里有策略的目标应用。其余应用 query 返回 null——
+     * 通道不再暴露给无关进程探测模块配置。
+     */
+    private fun callerAllowed(): Boolean {
+        val uid = Binder.getCallingUid()
+        if (uid % 100_000 < Process.FIRST_APPLICATION_UID || uid == Process.myUid()) return true
+        val ctx = context ?: return false
+        if (ctx.checkCallingPermission(PERMISSION_CONFIG) == PackageManager.PERMISSION_GRANTED) return true
+        val pkgs = runCatching { ctx.packageManager.getPackagesForUid(uid) }.getOrNull() ?: return false
+        val a = readerAcl() ?: return false
+        return pkgs.any { a.allows(it) }
+    }
+
+    private fun readerAcl(): ReaderAcl? {
+        val f = payloadFile()?.takeIf { it.isFile } ?: return null
+        val mtime = f.lastModified()
+        acl?.let { if (it.mtime == mtime) return it }
+        val snap = runCatching { SnapshotParser.parseOrNull(f.readText()) }.getOrNull() ?: return null
+        return ReaderAcl(
+            mtime,
+            snap.policies.mapNotNullTo(HashSet()) { it.pkg },
+            snap.policies.any { it.pkg == null },
+            snap.excludedPackages,
+        ).also { acl = it }
+    }
+
     // ---------------------------------------------------------------- 存储
 
     /** device-protected 优先（directBoot 可读）；不可用时退内部存储（早读拿不到，可接受） */
@@ -109,6 +157,10 @@ class ConfigContentProvider : ContentProvider() {
         const val COL_PAYLOAD = "payload"
         const val AUTHORITY = "dev.ven11.module.config"
         const val TYPE = "vnd.android.cursor.item/vnd.dev.ven11.module.config"
+
+        /** 与 manifest 的读侧组件权限（WakeReceiver）/ 写侧 writePermission 同名 */
+        const val PERMISSION_CONFIG = "dev.ven11.module.permission.CONFIG"
+
         val ALL_COLUMNS = arrayOf(COL_VERSION, COL_PAYLOAD)
 
         /** 消费方用：content://dev.ven11.module.config/payload */

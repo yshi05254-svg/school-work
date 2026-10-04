@@ -13,36 +13,36 @@ local.properties
 
 # 日志与设备抓取物（logcat、设备数据库、抓包、临时脚本）
 log/
-maa_diag/
-diagnostics/
+*.log
+logcat*.txt
 back_up_开发痕迹/
 diagnostics/
-.git/
-.hg/
-.svn/
-node_modules/
-bower_components/
-jspm_packages/
-__pycache__/
-site-packages/
-venv/
-coverage/
-htmlcov/
-lcov-report/
-cmakefiles/
-cmake-build-*/
-bazel-*/
-pods/
-deriveddata/
-storybook-static/
-playwright-report/
-test-results/
-allure-results/
-allure-report/
-cdk.out/
-*.egg-info/
-*.dist-info/
-eggs/
-pip-wheel-metadata/
-wheels/
-.zcodeignore
+报告/
+
+# 设备诊断抓取物（截图、logcat、设备数据库、厂商 jar 反编译产物）
+maa_diag/
+*.db
+*.db-shm
+*.db-wal
+*.hprof
+captures/
+
+# 设备上拉下来的配置快照（含伪造坐标与应用策略）
+snapshot.json
+
+# 签名密钥与打包产物
+*.jks
+*.keystore
+keystore.properties
+*.apk
+*.aab
+
+# 误提交过的 Windows 系统缓存目录（%SystemDrive% 未展开时生成）
+%SystemDrive%/
+back_up_开发测试/ven11_backup/ano_tmp/
+
+# 本地工具数据与抓包/设备抓取物
+.zcode/
+*.pcap
+*.pcapng
+*.raw

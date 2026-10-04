@@ -10,6 +10,8 @@ package com.example.menuui.config
  */
 data class ManagerConfig(
     val masterEnabled: Boolean = true,
+    /** 方案B：定位伪装由 system_server 执行（应用无需读到模块配置）；false=回退应用内伪装（应急） */
+    val serverLocation: Boolean = true,
     val jitterEnabled: Boolean = true,
     val jitterAmplitudeMeters: Double = 8.0,
     /** 当前环境（预设选中载入 / 自定义编辑就地修改） */
@@ -30,6 +32,8 @@ data class ManagerConfig(
     val joystickPresetId: String = JoystickPresets.WALK.id,
     /** 改动后自动发布（防抖 800ms）；关闭则只能手动点"发布配置" */
     val autoPublish: Boolean = true,
+    /** 用户新建的位置卡片（id 以 custom_ 开头），排在内置预设之后，持久化 */
+    val customPresets: List<Presets.NamedPreset> = emptyList(),
 ) {
     val targetPackages: List<String> get() = apps.map { it.pkg }
 }

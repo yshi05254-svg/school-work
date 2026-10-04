@@ -89,6 +89,25 @@ class ClientLocationHooks(private val module: XposedModule) {
                 m.name == "registerGnssStatusCallback" -> {
                     installGnssCallback(m, pkg, uid); n++
                 }
+                // 原始测量通道：AOSP 单数 registerGnssMeasurementCallback，部分 ROM
+                // （ColorOS 16 实测）改为复数 registerGnssMeasurementsCallback，另存
+                // 遗留 addGpsMeasurementListener——三者都按位置级泄漏抑制
+                m.name == "registerGnssMeasurementCallback" ||
+                    m.name == "registerGnssMeasurementsCallback" ||
+                    m.name == "addGpsMeasurementListener" -> {
+                    installGnssMeasurementSuppress(m); n++
+                }
+                m.name == "addNmeaListener" -> {
+                    installNmeaSuppress(m); n++
+                }
+                // 批量定位交付完整 Location 列表（真实位置），导航电文含星历——
+                // 都是位置级泄漏面，与原始测量同策略抑制
+                m.name == "registerGnssBatchedLocationCallback" -> {
+                    installCbSuppress(m, "LOC-BATCH", "BatchedLocation", "onLocationBatch"); n++
+                }
+                m.name == "registerGnssNavigationMessageCallback" -> {
+                    installCbSuppress(m, "LOC-NAVMSG", "NavigationMessage", "onGnssNavigationMessageReceived"); n++
+                }
             }
         }
         module.log(Log.INFO, "VEN11", "client location hooks installed=$n pkg=$pkg")
@@ -98,6 +117,17 @@ class ClientLocationHooks(private val module: XposedModule) {
 
     private fun hasListenerArg(m: Method): Boolean =
         m.parameterTypes.any { LocationListener::class.java.isAssignableFrom(it) }
+
+    /**
+     * 方案B 开关：serverLocation=true（默认）时坐标交付与 GNSS 抑制由 system_server
+     * 负责（system_server 直读快照，不依赖应用能读到模块 provider），客户端交付类
+     * 钩子一律透传，避免双重改写；false = 服务端停用，客户端恢复原行为。
+     * 在**交付时**判断（不在注册时），运行中切换开关立即对已注册监听生效。
+     * 本进程读不到配置（如微信）时 SnapshotStore 为 EMPTY、serverLocation 默认 true
+     * → 透传，与服务端已完成的伪装一致。
+     */
+    private fun serverOwnsDelivery(): Boolean =
+        dev.ven11.module.ipc.SnapshotStore.current().serverLocation
 
     private fun hasConsumerArg(m: Method): Boolean =
         m.parameterTypes.any { it == Consumer::class.java }
@@ -118,6 +148,8 @@ class ClientLocationHooks(private val module: XposedModule) {
                 } finally {
                     inSync.remove()
                 }
+                // 方案B：交付由服务端负责时客户端透传
+                if (serverOwnsDelivery()) return real
                 val realLoc = real as? Location
                 return when (val d = LocationFactory.decide(pkg, uid, providerArg(chain, realLoc), realLoc)) {
                     is Decision.Spoof -> { logHit(m.name, d.loc); d.loc }
@@ -160,6 +192,11 @@ class ClientLocationHooks(private val module: XposedModule) {
         private val fallbackProvider: String,
     ) : Consumer<Location?>, SpoofWrapper {
         override fun accept(location: Location?) {
+            // 方案B：交付由服务端负责时客户端原样转发
+            if (serverOwnsDelivery()) {
+                orig.accept(location)
+                return
+            }
             val out = when (val d = LocationFactory.decide(pkg, uid, location?.provider ?: fallbackProvider, location)) {
                 is Decision.Spoof -> { logHit("consumer", d.loc); d.loc }
                 Decision.PassThrough -> location
@@ -211,12 +248,15 @@ class ClientLocationHooks(private val module: XposedModule) {
         private val fallbackProvider: String,
     ) : LocationListener, SpoofWrapper {
 
-        private fun map(location: Location): Location? =
-            when (val d = LocationFactory.decide(pkg, uid, location.provider ?: fallbackProvider, location)) {
+        private fun map(location: Location): Location? {
+            // 方案B：交付由服务端负责时客户端原样透传（不丢回调）
+            if (serverOwnsDelivery()) return location
+            return when (val d = LocationFactory.decide(pkg, uid, location.provider ?: fallbackProvider, location)) {
                 is Decision.Spoof -> { logHit("listener", d.loc); d.loc }
                 Decision.PassThrough -> location
                 Decision.Block -> null
             }
+        }
 
         override fun onLocationChanged(location: Location) {
             map(location)?.let { orig.onLocationChanged(it) }
@@ -337,9 +377,9 @@ class ClientLocationHooks(private val module: XposedModule) {
 
     /**
      * GnssStatus 无公开构造（合成需深反射隐藏 SatelliteInfo，高险低益），采用
-     * "注册包装 + 交付抑制"策略：卫星状态回调在严格模式下整体抑制（应用读不到
-     * 与伪装坐标矛盾的卫星视图），兼容模式透传真实值。onLocationChanged 不经
-     * 此回调（走 listener 路径，已另行包装）。
+     * "注册包装 + 交付抑制"策略：只要应用有环境伪装，卫星状态回调整体抑制
+     * （卫星几何与真实天空一致，可反推真实位置——实测非严格模式也会被高德
+     * 引擎利用）。onLocationChanged 不经此回调（走 listener 路径，已另行包装）。
      */
     private fun installGnssCallback(m: Method, pkg: String, uid: Int) {
         module.hook(m).setId("ven11.loc.gnss.${sig(m)}").intercept(object : XposedInterface.Hooker {
@@ -357,17 +397,102 @@ class ClientLocationHooks(private val module: XposedModule) {
                         // 注意：这里必须用交付回调自己的 chain（cbChain）——外层的 chain
                         // 是 registerGnssStatusCallback 注册调用，注册在下方 proceed，
                         // 拿它 proceed 等于重放注册而非交付卫星状态
-                        val eff = dev.ven11.module.ipc.PolicyResolver.resolve(pkg, uid)
-                        if (eff.domainEnabled(dev.ven11.module.ipc.PolicyResolver.Domain.LOCATION) &&
-                            eff.environment != null && eff.policy?.strictMode == true
-                        ) {
-                            null // 严格模式：抑制卫星状态交付
-                        } else {
+                        // 方案B：交付由服务端负责时客户端透传（服务端已按注册过滤卫星视图）
+                        if (serverOwnsDelivery()) {
                             cbChain.proceed()
+                        } else {
+                            val eff = dev.ven11.module.ipc.PolicyResolver.resolve(pkg, uid)
+                            if (eff.domainEnabled(dev.ven11.module.ipc.PolicyResolver.Domain.LOCATION) &&
+                                eff.environment != null
+                            ) {
+                                null // 有环境伪装即抑制：卫星几何与真实天空一致，可反推真实位置
+                            } else {
+                                cbChain.proceed()
+                            }
                         }
                     }
                 }.onFailure { dev.ven11.module.ProbeLog.log("LOC-GNSS-FAIL $it") }
                 // 原注册只执行一次，异常原样传播；客户端钩身份进程级固定
+                return chain.proceed()
+            }
+        })
+    }
+
+    // ---------------------------------------------------------------- GnssMeasurement / NMEA 抑制
+
+    /**
+     * GnssMeasurement（原始伪距）与 NMEA（GGA/RMC 语句）都携带可直接解算的真实
+     * 位置——LocationManager 定位对象的改写盖不住这条"应用自解算"路径（实测：
+     * 高德引擎用原始测量值算出真实位置，无视被改写成环境坐标的定位对象）。
+     * 两者**无条件抑制交付**：应用拿不到原始测量，回落到（已伪装的）
+     * LocationManager 定位。与 GnssStatus（仅卫星视图、无位置、严格模式才抑制）
+     * 不同，这两个通道是位置级泄漏面。
+     */
+    private fun installGnssMeasurementSuppress(m: Method) {
+        module.hook(m).setId("ven11.loc.gnssmeas.${sig(m)}").intercept(object : XposedInterface.Hooker {
+            override fun intercept(chain: XposedInterface.Chain): Any? {
+                // 回调类型不在公开 SDK（GnssMeasurementsEvent$Callback 隐藏嵌套类），
+                // 按类名鸭子匹配：GnssMeasurement / GpsMeasurement（遗留监听器），
+                // 排除同前缀的 Request 请求参数
+                val cb = chain.args.firstOrNull {
+                    it != null && (it.javaClass.name.contains("GnssMeasurement") ||
+                        it.javaClass.name.contains("GpsMeasurement")) &&
+                        !it.javaClass.name.contains("Request")
+                } ?: return chain.proceed()
+                runCatching {
+                    dev.ven11.module.hook.util.CallbackHooks.install(
+                        module, "LOC-GNSSMEAS", cb, null,
+                        methodNames = setOf("onGnssMeasurementsReceived", "onGpsMeasurementReceived"),
+                    ) { cbChain, _ ->
+                        // 抑制：原始测量值可解算真实位置；方案B 服务端负责时透传（服务端已按注册过滤）
+                        if (serverOwnsDelivery()) cbChain.proceed() else null
+                    }
+                }.onFailure { dev.ven11.module.ProbeLog.log("LOC-GNSSMEAS-FAIL $it") }
+                return chain.proceed()
+            }
+        })
+    }
+
+    /** 通用"注册包装 + 交付抑制"：按类名片段鸭子匹配回调参数，交付方法一律抑制 */
+    private fun installCbSuppress(m: Method, tag: String, classFragment: String, vararg methodNames: String) {
+        module.hook(m).setId("ven11.loc.$tag.${sig(m)}").intercept(object : XposedInterface.Hooker {
+            override fun intercept(chain: XposedInterface.Chain): Any? {
+                val cb = chain.args.firstOrNull {
+                    it != null && it.javaClass.name.contains(classFragment) &&
+                        !it.javaClass.name.contains("Request")
+                } ?: return chain.proceed()
+                runCatching {
+                    dev.ven11.module.hook.util.CallbackHooks.install(
+                        module, tag, cb, null,
+                        methodNames = methodNames.toSet(),
+                    ) { cbChain, _ ->
+                        // 抑制：交付内容携带真实位置；方案B 服务端负责时透传（服务端已按注册过滤）
+                        if (serverOwnsDelivery()) cbChain.proceed() else null
+                    }
+                }.onFailure { dev.ven11.module.ProbeLog.log("$tag-FAIL $it") }
+                return chain.proceed()
+            }
+        })
+    }
+
+    private fun installNmeaSuppress(m: Method) {
+        module.hook(m).setId("ven11.loc.nmea.${sig(m)}").intercept(object : XposedInterface.Hooker {
+            override fun intercept(chain: XposedInterface.Chain): Any? {
+                val cb = chain.args.firstOrNull {
+                    it is android.location.OnNmeaMessageListener ||
+                        it is android.location.GpsStatus.NmeaListener
+                } ?: return chain.proceed()
+                runCatching {
+                    dev.ven11.module.hook.util.CallbackHooks.install(
+                        module, "LOC-NMEA", cb, null,
+                        // ColorOS 16 实测回调名为 onNmeaMessage（非 AOSP 的 onNmeaReceived）
+                        methodNames = setOf("onNmeaReceived", "onNmeaMessage"),
+                        baseFallback = android.location.OnNmeaMessageListener::class.java,
+                    ) { cbChain, _ ->
+                        // 抑制：NMEA GGA/RMC 语句携带真实经纬度；方案B 服务端负责时透传
+                        if (serverOwnsDelivery()) cbChain.proceed() else null
+                    }
+                }.onFailure { dev.ven11.module.ProbeLog.log("LOC-NMEA-FAIL $it") }
                 return chain.proceed()
             }
         })

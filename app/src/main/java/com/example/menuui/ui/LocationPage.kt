@@ -4,13 +4,16 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -22,6 +25,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -33,14 +39,16 @@ import com.example.menuui.config.Presets
 import com.example.menuui.config.WifiDraft
 
 /**
- * 位置页：固定 8 组预设（1 国外 + 7 个不同中国省份）单选载入 + 当前环境全量编辑器
- * （坐标/高度/精度/速度/朝向、基站、WiFi、蓝牙、语言/时区建议、GPS 抖动）。
- * 预设选中即发布（动态更新位置）；编辑器改动点"发布配置"生效。
+ * 位置页：内置预设 + 用户自建卡片单选载入（下方展示选中卡片的坐标/语言/时区/基站/WiFi/蓝牙/SIM）
+ * + 当前环境全量编辑器（坐标/高度/精度/速度/朝向、基站、WiFi、蓝牙、语言/时区建议、GPS 抖动）。
+ * 预设选中即发布（动态更新位置）；编辑器改动点"发布配置"生效；"新建卡片"把当前环境存为自建卡片。
  */
 @Composable
 fun LocationPage() {
     val context = LocalContext.current
     val cfg by ConfigBus.state.collectAsState()
+    var showAddDialog by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<Presets.NamedPreset?>(null) }
 
     val publish: () -> Unit = {
         ConfigBus.publishAsync(record = true) { r ->
@@ -59,27 +67,102 @@ fun LocationPage() {
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SectionCard(title = "位置预设（${Presets.all.size} 组）", subtitle = "点击载入到当前环境（含该组基站/WiFi/蓝牙/SIM）并立即发布") {
-            Presets.all.chunked(2).forEach { row ->
+        val allPresets = Presets.all + cfg.customPresets
+        SectionCard(
+            title = "位置预设（${Presets.all.size} 组内置 + ${cfg.customPresets.size} 组自建）",
+            subtitle = "点击载入到当前环境（含该组基站/WiFi/蓝牙/SIM）并立即发布",
+        ) {
+            // null = 末尾的"新建卡片"入口
+            (allPresets + listOf<Presets.NamedPreset?>(null)).chunked(2).forEach { row ->
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     row.forEach { preset ->
-                        PresetCard(
-                            preset = preset,
-                            selected = cfg.env.name == preset.env.name &&
-                                cfg.env.lat == preset.env.lat,
-                            modifier = Modifier.weight(1f),
-                            onSelect = {
-                                ConfigBus.update { c -> c.copy(env = preset.env, sim = preset.sim) }
-                                ConfigBus.publishAsync(record = false)
-                            },
-                        )
+                        if (preset == null) {
+                            AddPresetCard(Modifier.weight(1f)) { showAddDialog = true }
+                        } else {
+                            PresetCard(
+                                preset = preset,
+                                selected = isPresetSelected(cfg.env, preset),
+                                modifier = Modifier.weight(1f),
+                                onSelect = {
+                                    ConfigBus.update { c -> c.copy(env = preset.env, sim = preset.sim) }
+                                    ConfigBus.publishAsync(record = false)
+                                },
+                                onDelete = if (preset.id.startsWith(CUSTOM_PREFIX)) {
+                                    { pendingDelete = preset }
+                                } else null,
+                            )
+                        }
                     }
-                    if (row.size == 1) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                    if (row.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
+
+            // 自建卡片被选中后又在编辑器里改了内容：允许把改动写回该卡片
+            val editedCustom = cfg.customPresets.firstOrNull {
+                it.env.name == cfg.env.name && (it.env != cfg.env || it.sim != cfg.sim)
+            }
+            if (editedCustom != null) {
+                TextButton(onClick = {
+                    ConfigBus.update { c ->
+                        c.copy(customPresets = c.customPresets.map { p ->
+                            if (p.id == editedCustom.id) p.copy(env = c.env, sim = c.sim) else p
+                        })
+                    }
+                    Toast.makeText(context, "已更新卡片「${editedCustom.label}」", Toast.LENGTH_SHORT).show()
+                }) { Text("将当前编辑保存到卡片「${editedCustom.label}」") }
+            }
+
+            val current = allPresets.firstOrNull { isPresetSelected(cfg.env, it) }
+            if (current != null) {
+                PresetDetail(current)
+            } else {
+                Text(
+                    "当前环境（${cfg.env.name}）不是预设或已被编辑，详情见下方编辑器",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        if (showAddDialog) {
+            AddPresetDialog(
+                envName = cfg.env.name,
+                takenNames = allPresets.flatMap { listOf(it.label, it.env.name) }.toSet(),
+                onDismiss = { showAddDialog = false },
+                onConfirm = { label, region ->
+                    showAddDialog = false
+                    ConfigBus.update { c ->
+                        val env = c.env.copy(name = label)
+                        val preset = Presets.NamedPreset(
+                            id = CUSTOM_PREFIX + System.currentTimeMillis(),
+                            label = label,
+                            region = region.ifBlank { "自建" },
+                            env = env,
+                            sim = c.sim,
+                        )
+                        c.copy(env = env, customPresets = c.customPresets + preset)
+                    }
+                    Toast.makeText(context, "已新建卡片「$label」", Toast.LENGTH_SHORT).show()
+                },
+            )
+        }
+
+        pendingDelete?.let { target ->
+            AlertDialog(
+                onDismissRequest = { pendingDelete = null },
+                title = { Text("删除卡片") },
+                text = { Text("删除自建卡片「${target.label}」？当前已载入的环境不受影响。") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        pendingDelete = null
+                        ConfigBus.update { c -> c.copy(customPresets = c.customPresets.filter { it.id != target.id }) }
+                    }) { Text("删除") }
+                },
+                dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("取消") } },
+            )
         }
 
         SectionCard(
@@ -134,6 +217,8 @@ private fun PresetCard(
     selected: Boolean,
     modifier: Modifier = Modifier,
     onSelect: () -> Unit,
+    /** 非空 = 自建卡片，右上角显示删除 */
+    onDelete: (() -> Unit)? = null,
 ) {
     Card(
         onClick = onSelect,
@@ -144,12 +229,20 @@ private fun PresetCard(
         ),
     ) {
         Column(Modifier.padding(10.dp)) {
-            Text(
-                preset.label,
-                style = MaterialTheme.typography.titleSmall,
-                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-                else MaterialTheme.colorScheme.onSurface,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    preset.label,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                if (onDelete != null) {
+                    IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Filled.Close, "删除卡片", Modifier.size(16.dp))
+                    }
+                }
+            }
             Text(
                 preset.region,
                 style = MaterialTheme.typography.bodySmall,
@@ -162,6 +255,159 @@ private fun PresetCard(
             )
         }
     }
+}
+
+private const val CUSTOM_PREFIX = "custom_"
+
+@Composable
+private fun AddPresetCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.primary)
+            Text("新建卡片", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            Text("保存当前环境", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+/** 新建卡片：以当前环境（坐标/语言/时区/基站/WiFi/蓝牙/SIM）为内容，起名后保存 */
+@Composable
+private fun AddPresetDialog(
+    envName: String,
+    takenNames: Set<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (label: String, region: String) -> Unit,
+) {
+    var label by remember { mutableStateOf("") }
+    var region by remember { mutableStateOf("") }
+    val trimmed = label.trim()
+    val error = when {
+        trimmed.isEmpty() -> null
+        trimmed in takenNames -> "名称已存在"
+        else -> null
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("新建位置卡片") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "将当前环境（$envName）的坐标、语言、时区、基站、WiFi、蓝牙与 SIM 保存为新卡片。" +
+                        "可先在下方编辑器改好再新建。",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                StrField("卡片名称", label, { label = it })
+                if (error != null) {
+                    Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+                StrField("备注（如 华东 · 电信）", region, { region = it })
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(trimmed, region.trim()) },
+                enabled = trimmed.isNotEmpty() && error == null,
+            ) { Text("保存") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}
+
+private fun isPresetSelected(env: EnvDraft, preset: Presets.NamedPreset): Boolean =
+    env.name == preset.env.name && env.lat == preset.env.lat && env.lon == preset.env.lon
+
+/** 选中预设的完整内容：坐标 / 语言 / 时区 / 基站 / WiFi / 蓝牙 / SIM（只读，展示预设原值） */
+@Composable
+private fun PresetDetail(preset: Presets.NamedPreset) {
+    val env = preset.env
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("${preset.label} · ${preset.region}", style = MaterialTheme.typography.titleSmall)
+
+            DetailGroup("坐标") {
+                DetailLine("%.4f, %.4f".format(env.lat, env.lon))
+                DetailLine("高度 %.1f m · 精度 %.0f m".format(env.alt, env.accuracy))
+            }
+
+            DetailGroup("语言 / 时区") {
+                DetailLine("语言：" + env.languageTag.ifBlank { "跟随系统" })
+                DetailLine("时区：" + env.timezoneId.ifBlank { "跟随系统" })
+            }
+
+            DetailGroup("基站（${env.cells.size}）") {
+                env.cells.forEach { c ->
+                    DetailLine(
+                        "${c.radioType.uppercase()} ${c.mcc}-${c.mnc}" +
+                            (if (c.registered) "（驻留）" else "（邻区）") +
+                            "\nCI ${c.ci} · TAC ${c.tac} · PCI ${c.pci} · ARFCN ${c.arfcn} · ${c.signalDbm} dBm",
+                    )
+                }
+            }
+
+            DetailGroup("WiFi（${env.wifis.size}）") {
+                env.wifis.forEachIndexed { i, w ->
+                    DetailLine(
+                        w.ssid + (if (i == 0) "（已连接）" else "") +
+                            "\n${w.bssid} · ${w.frequencyMhz} MHz · ${w.signalDbm} dBm",
+                    )
+                }
+            }
+
+            DetailGroup("蓝牙（${env.btDevices.size} 台设备）") {
+                DetailLine(
+                    "本机：" + env.btAdapterName.ifBlank { "保持真实" } +
+                        (if (env.btAdapterAddress.isNotBlank()) "（${env.btAdapterAddress}）" else ""),
+                )
+                env.btDevices.forEach { b ->
+                    DetailLine("${b.name}\n${b.address} · ${b.rssi} dBm")
+                }
+            }
+
+            // SIM 是全局段（不在 EnvDraft 里），随卡片整体载入；编辑入口在"更多"页
+            val sim = preset.sim
+            val simOn = sim.enabled && sim.slots.isNotEmpty()
+            DetailGroup(if (simOn) "SIM（${sim.slots.size} 张卡）" else "SIM") {
+                if (!simOn) {
+                    DetailLine("保持真实")
+                } else {
+                    sim.slots.forEach { s ->
+                        DetailLine(
+                            "卡槽 ${s.slotIndex + 1} · ${s.carrierName.ifBlank { "未命名运营商" }}" +
+                                " ${s.mcc}-${s.mnc} · ${s.countryIso.uppercase()}" +
+                                (if (s.active) "" else "（未激活）") +
+                                "\n号码 ${s.phoneNumber.ifBlank { "—" }} · ICCID ${s.iccid.ifBlank { "—" }}" +
+                                "\nIMSI ${s.imsi.ifBlank { "—" }}",
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailGroup(title: String, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        content()
+    }
+}
+
+@Composable
+private fun DetailLine(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 private fun editEnv(transform: (EnvDraft) -> EnvDraft) {

@@ -20,6 +20,9 @@ import dev.ven11.module.model.VirtualEnvironment
  *
  * 热路径成本：resolve 被 GPS / WiFi 等高频回调逐次调用，带 (pkg,uid) TTL 微缓存；
  * TTL 到期前的快照热更新对该调用方最多延迟 CACHE_TTL_MS 可见。
+ * 缓存按 (pkg,uid) 多条存放（方案B）：system_server 侧同一秒内会有多个应用的
+ * 定位回调交替进来，此前"只存最近一条"会持续互相挤掉，等效于无缓存——每条
+ * 回调都要重扫策略表；改为小容量 map，快照版本变化时整体清空（invalidate）。
  */
 object PolicyResolver {
 
@@ -41,15 +44,17 @@ object PolicyResolver {
 
     private const val CACHE_TTL_MS = 250L
 
-    private class Cached(val key: String, val at: Long, val value: EffectivePolicy)
+    /** 条目上限：正常远小于此（策略数级），超限整体清空防泄漏（防御性上限） */
+    private const val CACHE_MAX_ENTRIES = 32
 
-    @Volatile
-    private var cache: Cached? = null
+    private class Cached(val at: Long, val value: EffectivePolicy)
+
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, Cached>()
 
     fun resolve(pkg: String, uid: Int): EffectivePolicy {
         val key = "$pkg#$uid"
         val now = SystemClock.elapsedRealtime()
-        cache?.let { if (it.key == key && now - it.at < CACHE_TTL_MS) return it.value }
+        cache[key]?.let { if (now - it.at < CACHE_TTL_MS) return it.value }
 
         val snap = SnapshotStore.current()
         val userId = uid / 100_000
@@ -70,11 +75,14 @@ object PolicyResolver {
             jitter = snap.jitter,
             payload = snap,
             gateOpen = gateOpen,
-        ).also { cache = Cached(key, now, it) }
+        ).also {
+            if (cache.size >= CACHE_MAX_ENTRIES) cache.clear()
+            cache[key] = Cached(now, it)
+        }
     }
 
     /** 快照版本变化时由 SnapshotStore 调用：总开关/排除名单变化不吃 TTL 延迟 */
     fun invalidate() {
-        cache = null
+        cache.clear()
     }
 }

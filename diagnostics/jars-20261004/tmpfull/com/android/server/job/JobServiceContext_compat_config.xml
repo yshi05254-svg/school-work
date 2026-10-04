@@ -1,1 +1,0 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?><config><compat-change enableAfterTargetSdk="33" id="258236856" name="ANR_PRE_UDC_APIS_ON_SLOW_RESPONSES"><meta-data definedIn="com.android.server.job.JobServiceContext" sourcePosition="frameworks/base/apex/jobscheduler/service/java/com/android/server/job/JobServiceContext.java:104"/></compat-change></config>

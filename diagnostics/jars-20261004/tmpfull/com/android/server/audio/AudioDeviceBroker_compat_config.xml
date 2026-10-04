@@ -1,1 +1,0 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?><config><compat-change enableSinceTargetSdk="32" id="243827847" name="USE_SET_COMMUNICATION_DEVICE"><meta-data definedIn="com.android.server.audio.AudioDeviceBroker" sourcePosition="frameworks/base/services/core/java/com/android/server/audio/AudioDeviceBroker.java:251"/></compat-change></config>

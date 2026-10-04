@@ -1,1 +1,0 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?><config><compat-change enableSinceTargetSdk="10000" id="216114297" name="REQUIRE_TURN_SCREEN_ON_PERMISSION"><meta-data definedIn="com.android.server.power.PowerManagerService" sourcePosition="frameworks/base/services/core/java/com/android/server/power/PowerManagerService.java:332"/></compat-change></config>

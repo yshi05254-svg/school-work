@@ -1,6 +1,5 @@
 package com.example.menuui.ui
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,7 +18,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.menuui.config.ConfigBus
 import com.example.menuui.publish.Probe
@@ -32,7 +29,6 @@ import java.util.Date
  */
 @Composable
 fun HomePage() {
-    val context = LocalContext.current
     val cfg by ConfigBus.state.collectAsState()
     val joystick by ConfigBus.joystick.collectAsState()
     var probe by remember { mutableStateOf<Probe?>(null) }
@@ -53,7 +49,8 @@ fun HomePage() {
             subtitle = "关闭后所有应用透传真实位置（快照 masterEnabled=false）",
         ) {
             SwitchRow(
-                title = "masterEnabled",
+                title = "启用虚拟环境",
+                subtitle = "masterEnabled",
                 checked = cfg.masterEnabled,
                 onChange = { on ->
                     ConfigBus.update { it.copy(masterEnabled = on) }
@@ -69,7 +66,8 @@ fun HomePage() {
                 "关闭则回退到应用内伪装（应急，免重装模块）",
         ) {
             SwitchRow(
-                title = "serverLocation",
+                title = "由系统服务执行定位伪装",
+                subtitle = "serverLocation",
                 checked = cfg.serverLocation,
                 onChange = { on ->
                     ConfigBus.update { it.copy(serverLocation = on) }
@@ -134,20 +132,7 @@ fun HomePage() {
             }
         }
 
-        Button(
-            onClick = {
-                ConfigBus.publishAsync(record = true) { r ->
-                    Toast.makeText(
-                        context,
-                        (if (r.ok) "发布成功（${r.via}）：" else "发布失败：") + r.message,
-                        if (r.ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG,
-                    ).show()
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("立即发布配置到模块") }
-
-        SectionCard(title = "发布记录", subtitle = "仅手动发布留痕（服务节拍不记录）") {
+        SectionCard(title = "发布记录", subtitle = "点顶栏发布状态即可手动发布；仅手动发布留痕") {
             if (cfg.history.isEmpty()) {
                 Text("暂无记录", style = MaterialTheme.typography.bodySmall)
             } else {

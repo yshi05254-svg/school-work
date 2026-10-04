@@ -1,5 +1,7 @@
 package com.example.menuui.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,22 +9,34 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.menuui.config.PublishOutcome
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * 共享表单组件。数字输入框约定：本地文本态与外部数值解耦——输入过程中的
@@ -31,13 +45,46 @@ import androidx.compose.ui.unit.dp
  */
 object UiComponents
 
+/**
+ * 全局提示（Scaffold 底部 Snackbar，取代 Toast）：不挡操作、可带动作按钮（撤销 / 保存）。
+ * 新提示顶掉旧提示，连续操作不排队。由 ManagerApp 提供。
+ */
+class Notifier(private val host: SnackbarHostState, private val scope: CoroutineScope) {
+    fun show(message: String, actionLabel: String? = null, onAction: () -> Unit = {}) {
+        scope.launch {
+            host.currentSnackbarData?.dismiss()
+            val result = host.showSnackbar(
+                message = message,
+                actionLabel = actionLabel,
+                withDismissAction = actionLabel == null,
+                duration = if (actionLabel != null) SnackbarDuration.Long else SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) onAction()
+        }
+    }
+
+    fun publishResult(r: PublishOutcome) {
+        show(if (r.ok) "已生效（${r.via}）" else "发布失败：${r.message}")
+    }
+}
+
+val LocalNotifier = staticCompositionLocalOf<Notifier> { error("Notifier 未提供（需在 ManagerApp 内使用）") }
+
+/**
+ * 分组卡片。collapsible=true 时标题行可点击折叠（状态随页面保存），
+ * 长表单默认收起次要分组，减少滚动。
+ */
 @Composable
 fun SectionCard(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    collapsible: Boolean = false,
+    initiallyExpanded: Boolean = true,
     content: @Composable () -> Unit,
 ) {
+    var expanded by rememberSaveable { mutableStateOf(initiallyExpanded) }
+    val open = !collapsible || expanded
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -45,18 +92,35 @@ fun SectionCard(
         ),
     ) {
         Column(Modifier.padding(14.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            if (subtitle != null) {
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .then(if (collapsible) Modifier.clickable { expanded = !expanded } else Modifier),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    if (subtitle != null) {
+                        Text(
+                            subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                if (collapsible) {
+                    Icon(
+                        if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                        contentDescription = if (expanded) "收起" else "展开",
+                    )
+                }
             }
-            Column(
-                Modifier.padding(top = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) { content() }
+            AnimatedVisibility(visible = open) {
+                Column(
+                    Modifier.padding(top = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) { content() }
+            }
         }
     }
 }

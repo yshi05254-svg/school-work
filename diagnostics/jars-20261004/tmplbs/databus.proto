@@ -1,0 +1,28 @@
+syntax = "proto3";
+package com.oplus.pantaconnect.sdk;
+
+option java_multiple_files = true;
+
+message DataBusOption {
+  int32 pid = 1;
+  int32 clientId = 2;
+  InternalTopic topic = 3;
+}
+
+message InternalTopic {
+  string name = 1;
+  int32 tag = 2;
+}
+
+message InternalDataBusPayload {
+  InternalTopic topic = 1;
+  string message = 2;
+  string pubDeviceId = 3;
+}
+
+message InternalDataBusEvent {
+  InternalTopic topic = 1;
+  string event = 2;
+  string param = 3;
+}
+

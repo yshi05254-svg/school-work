@@ -1,0 +1,5 @@
+signature,file,startline,startcol,endline,endcol,properties
+Lcom/android/server/power/hint/FeatureFlags;->adpfSessionTag()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/power/hint/power_hint_flags_lib/android_common/javac/srcjars/com/android/server/power/hint/FeatureFlags.java,9,5,9,25,
+Lcom/android/server/power/hint/FeatureFlags;->cpuHeadroomAffinityCheck()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/power/hint/power_hint_flags_lib/android_common/javac/srcjars/com/android/server/power/hint/FeatureFlags.java,13,5,13,25,
+Lcom/android/server/power/hint/FeatureFlags;->powerhintThreadCleanup()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/power/hint/power_hint_flags_lib/android_common/javac/srcjars/com/android/server/power/hint/FeatureFlags.java,17,5,17,25,
+Lcom/android/server/power/hint/FeatureFlags;->resetOnForkEnabled()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/power/hint/power_hint_flags_lib/android_common/javac/srcjars/com/android/server/power/hint/FeatureFlags.java,21,5,21,25,

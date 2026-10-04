@@ -1,0 +1,122 @@
+syntax = "proto3";
+package com.oplus.pantaconnect.connection;
+
+option java_multiple_files = true;
+
+message ConnectExtensionArgs{
+  bool force = 1;
+  bool addBlacklist = 2;
+  bool isCloseAll = 3;
+  string pkg = 4;
+  int32 pid = 5;
+}
+
+message GlobalDeviceConnectParams{
+  bytes displayDevice = 1;
+  int32 connectType = 2;
+  int32 channelType = 3;
+  ConnectExtensionArgs extra = 4;
+  DirectionDecisionParams directDecision = 5;
+}
+
+message PairActionParams{
+  bytes displayDevice = 1;
+  InternalPairAction pairAction = 2;
+  ConfirmType confirmType = 3;
+
+  enum ConfirmType {
+    CONFIRM_FOR_ADVERTISE = 0;
+    CONFIRM_FOR_QR_CODE = 1;
+    CONFIRM_FOR_QR_CODE_COMPAT_P2P = 2;
+  }
+}
+
+enum InternalPairAction{
+  UNKNOWN = 0;
+  ACCEPT = 1;
+  REJECT = 2;
+  PIN_AUTH = 3;
+  CUSTOMIZE_AUTH = 4;
+}
+
+message GlobalDeviceConnectionItem {
+  int32 connectType = 1;
+  int32 channelType = 2;
+  string address = 3;
+  string ip = 4;
+  string ssid = 5;
+}
+
+message GlobalDeviceConnections {
+  repeated GlobalDeviceConnectionItem data = 1;
+}
+
+message GlobalDeviceConnectionEvent {
+  EventType type = 1;
+  bytes displayDevice = 2;
+  bytes result = 3;
+  bytes extra = 4;
+
+  enum EventType {
+    CONNECTION_INIT = 0;
+    CONNECTION_SUCCESS = 1;
+    CONNECTION_FAIL = 2;
+    CONNECTION_DISCONNECTED = 3;
+    QR_CODE_INFO_REQUEST = 4;
+    EXTENSION_EVENT = 5;
+  }
+}
+
+message QrCodeRequestParams{
+  int32 deviceType = 1;
+  InternalQrCodeType qrCodeType = 2;
+  string modelId = 3;
+  string pid = 4;
+
+  enum InternalQrCodeType {
+    CONNECT_PARAMS_P2P_MAC = 0;
+    CONNECT_PARAMS_P2P_BT_MAC = 1;
+  }
+}
+
+message GetConnectionListParams{
+  string deviceId = 1;
+  int32 connectorType = 2;
+}
+
+message GetModelIdResUriParams{
+  int32 deviceType = 1;
+  string modelId = 2;
+  string packageName = 3;
+}
+
+message P2PPhysicalSupportedResult {
+  int32 code = 1;
+  bool state = 2;
+}
+
+message ConnectionHoldingParams {
+  string deviceId = 1;
+  int32 connectType = 2;
+  bool isForcedHolding = 3;
+  int32 pid = 4;
+}
+
+message P2PPhysicalEvent {
+  int32 eventType = 1;
+  bytes device = 2;
+  bytes result = 3;
+}
+
+message DirectionDecisionParams {
+  string macAddress = 1;
+  string advFreq = 2;
+  string remoteIp = 3;
+  string ssid = 4;
+  string tag = 5;
+  string deviceId = 6;
+  string kscAlias = 7;
+  string deviceKsc = 8;
+  string name = 9;
+  string password = 10;
+}

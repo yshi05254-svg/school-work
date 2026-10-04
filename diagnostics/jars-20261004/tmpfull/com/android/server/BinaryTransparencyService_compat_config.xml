@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><config><compat-change id="245692487" name="LOG_MBA_INFO"><meta-data definedIn="com.android.server.BinaryTransparencyService" sourcePosition="frameworks/base/services/core/java/com/android/server/BinaryTransparencyService.java:170"/></compat-change></config>

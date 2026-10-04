@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><config><compat-change enableAfterTargetSdk="34" id="296060945" name="ENFORCE_READ_DROPBOX_DATA"><meta-data definedIn="com.android.server.DropBoxManagerService" sourcePosition="frameworks/base/services/core/java/com/android/server/DropBoxManagerService.java:120"/></compat-change></config>

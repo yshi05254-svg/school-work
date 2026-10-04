@@ -1,0 +1,3 @@
+signature,file,startline,startcol,endline,endcol,properties
+Lcom/android/server/powerstats/FeatureFlags;->alarmBasedPowerstatsLogging()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/powerstats/powerstats_flags_lib/android_common/javac/srcjars/com/android/server/powerstats/FeatureFlags.java,9,5,9,25,
+Lcom/android/server/powerstats/FeatureFlags;->verifyNonNullArguments()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/powerstats/powerstats_flags_lib/android_common/javac/srcjars/com/android/server/powerstats/FeatureFlags.java,13,5,13,25,

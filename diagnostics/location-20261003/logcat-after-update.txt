@@ -1,0 +1,97 @@
+--------- beginning of system
+10-03 20:14:19.176  3591  6214 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:19.489 13870 14159 E ActivityThread: Failed to find provider info for com.oplus.framework.network.drs.sdk.track
+10-03 20:14:19.489 13870 14159 E ActivityThread: Failed to find provider info for com.oplus.framework.network.drs.sdk.track
+10-03 20:14:19.495 13870 14164 E ActivityThread: Failed to find provider info for com.oplus.framework.network.drs.sdk.track
+10-03 20:14:19.495 13870 14164 E ActivityThread: Failed to find provider info for com.oplus.framework.network.drs.sdk.track
+10-03 20:14:19.540  7574  8761 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:20.063  7412 12905 E ActivityThread: Failed to find provider info for com.heytap.health.defaultprovider
+10-03 20:14:20.084  7191  7986 E ActivityThread: Failed to find provider info for com.heytap.health.defaultprovider
+10-03 20:14:20.086  7412 12905 E ActivityThread: Failed to find provider info for com.heytap.health.defaultprovider
+10-03 20:14:20.095  7191  7852 E ActivityThread: Failed to find provider info for com.heytap.health.sporthealthprovider
+10-03 20:14:20.115  7191  7986 E ActivityThread: Failed to find provider info for com.heytap.health.defaultprovider
+10-03 20:14:20.276 10374 10642 E ActivityThread: Failed to find provider info for com.microsoft.intune.mam.policy
+10-03 20:14:20.333  3591  6214 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:20.627  5284 14517 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:20.845  7574  8761 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:21.351  3591  6214 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:22.459  3591  6214 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:22.602  7574  8761 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:22.776 14913 14913 D ActivityThread: ComponentInfo{com.autonavi.minimap/com.autonavi.map.activity.SplashActivity} checkFinished=false 2
+10-03 20:14:22.793  5284 14517 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:23.289 14913 14989 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:23.612  3591  6214 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:23.629  7574  8761 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:23.781 13644 13644 E ActivityThread: Service com.oplus.melody.alive.service.MelodyAliveService has leaked IntentReceiver com.oplus.melody.alive.component.speechfind.SpeechFindManager$a@192219a that was originally registered here. Are you missing a call to unregisterReceiver()?
+10-03 20:14:23.781 13644 13644 E ActivityThread: android.app.IntentReceiverLeaked: Service com.oplus.melody.alive.service.MelodyAliveService has leaked IntentReceiver com.oplus.melody.alive.component.speechfind.SpeechFindManager$a@192219a that was originally registered here. Are you missing a call to unregisterReceiver()?
+10-03 20:14:23.781 13644 13644 E ActivityThread: 	at android.app.LoadedApk$ReceiverDispatcher.<init>(LoadedApk.java:2062)
+10-03 20:14:23.781 13644 13644 E ActivityThread: 	at android.app.LoadedApk.getReceiverDispatcher(LoadedApk.java:1708)
+10-03 20:14:23.781 13644 13644 E ActivityThread: 	at android.app.ContextImpl.registerReceiverInternal(ContextImpl.java:1924)
+10-03 20:14:23.781 13644 13644 E ActivityThread: 	at android.app.ContextImpl.registerReceiver(ContextImpl.java:1883)
+10-03 20:14:23.781 13644 13644 E ActivityThread: 	at android.content.ContextWrapper.registerReceiver(ContextWrapper.java:807)
+10-03 20:14:23.781 13644 13644 E ActivityThread: 	at com.oplus.melody.common.util.e.g(ContextExt.kt:33)
+10-03 20:14:23.781 13644 13644 E ActivityThread: 	at com.oplus.melody.common.util.d.get(R8$$SyntheticClass:22)
+10-03 20:14:23.781 13644 13644 E ActivityThread: 	at java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1744)
+10-03 20:14:23.781 13644 13644 E ActivityThread: 	at java.util.concurrent.CompletableFuture$AsyncSupply.exec(CompletableFuture.java:1736)
+10-03 20:14:23.781 13644 13644 E ActivityThread: 	at java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:391)
+10-03 20:14:23.781 13644 13644 E ActivityThread: 	at java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1322)
+10-03 20:14:23.781 13644 13644 E ActivityThread: 	at java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1858)
+10-03 20:14:23.781 13644 13644 E ActivityThread: 	at java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1823)
+10-03 20:14:23.781 13644 13644 E ActivityThread: 	at java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+10-03 20:14:23.817  5284 14517 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:23.890 12818 12818 I ActivityThread: Removing dead content provider:android.content.ContentProviderProxy@394aa4e
+10-03 20:14:24.667 14913 14989 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:24.684  3591  6214 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:24.830 15061 15405 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:24.877  7574  8761 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:24.910  9318  9754 E ActivityThread: Failed to find provider info for com.platform.usercenter.vip
+10-03 20:14:25.683  5284 14517 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:25.823  7574 13848 W ActivityThread: ClassLoader.getResources: The class loader returned by Thread.getContextClassLoader() may fail for processes that host multiple applications. You should explicitly specify a context class loader. For example: Thread.setContextClassLoader(getClass().getClassLoader());
+10-03 20:14:25.824 12377 13379 W ActivityThread: ClassLoader.getResources: The class loader returned by Thread.getContextClassLoader() may fail for processes that host multiple applications. You should explicitly specify a context class loader. For example: Thread.setContextClassLoader(getClass().getClassLoader());
+10-03 20:14:25.903  3591  6214 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:25.907 15061 15405 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:26.297 14913 14989 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:26.346  7574  8761 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:26.732 15589 15945 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:27.490 14913 14989 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:27.568  7574  8761 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:27.751  9318  9754 E ActivityThread: Failed to find provider info for com.platform.usercenter.vip
+10-03 20:14:27.779 15061 15405 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:27.974  3591  6214 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:28.300 15589 15945 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:28.417  5284 14517 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:28.738 16190 16563 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:28.766 14913 14989 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:28.829 15061 15405 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:28.951  7574  8761 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:29.173  3591  3591 I ActivityThread: Removing dead content provider:android.content.ContentProviderProxy@26ebfcf
+10-03 20:14:29.353 15589 15945 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:29.470  5284 14517 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:29.850 15061 15405 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:29.966  3591  6214 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:29.967 14913 14989 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:29.974 16190 16563 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:30.045  7574  8761 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:30.313 15589 15945 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:30.346 16999 17212 E ActivityThread: Failed to find provider info for com.nearme.romupdate.provider.db
+10-03 20:14:31.240 14913 14989 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:31.258  7574  8761 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:31.309  5284 14517 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:31.483  8424  9696 E ActivityThread: Failed to find provider info for com.heytap.health.sporthealthprovider
+10-03 20:14:31.506  3591  6214 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:31.727 16190 16563 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:31.844 15061 15405 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:32.239 14913 14989 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:32.269  7574  8761 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:32.304 15589 15945 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:32.846 15061 15405 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:32.877 16251 16637 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+--------- beginning of main
+10-03 20:14:32.877 16251 16637 I VEN11   : SNAP-FAULT provider:version-cursor-null
+10-03 20:14:33.242 14913 14989 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:33.312 15589 15945 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:33.619  7574  8761 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:33.731 16190 16563 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:33.849 15061 15405 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:34.242 14913 14989 E ActivityThread: Failed to find provider info for dev.ven11.module.config
+10-03 20:14:34.309 15589 15945 E ActivityThread: Failed to find provider info for dev.ven11.module.config

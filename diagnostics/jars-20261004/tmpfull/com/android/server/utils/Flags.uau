@@ -1,0 +1,4 @@
+signature,file,startline,startcol,endline,endcol,properties
+Lcom/android/server/utils/Flags;->anrTimerFreezer()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/utils/com.android.server.utils_aconfig-java/android_common/javac/srcjars/com/android/server/utils/Flags.java,15,5,15,25,
+Lcom/android/server/utils/Flags;->anrTimerService()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/utils/com.android.server.utils_aconfig-java/android_common/javac/srcjars/com/android/server/utils/Flags.java,22,5,22,25,
+Lcom/android/server/utils/Flags;->anrTimerTrace()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/utils/com.android.server.utils_aconfig-java/android_common/javac/srcjars/com/android/server/utils/Flags.java,29,5,29,25,

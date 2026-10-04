@@ -1,0 +1,6 @@
+signature,file,startline,startcol,endline,endcol,properties
+Lcom/android/server/biometrics/Flags;->faceVhalFeature()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/biometrics/biometrics_flags_lib/android_common/javac/srcjars/com/android/server/biometrics/Flags.java,19,5,19,25,
+Lcom/android/server/biometrics/Flags;->frrDialogImprovement()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/biometrics/biometrics_flags_lib/android_common/javac/srcjars/com/android/server/biometrics/Flags.java,26,5,26,25,
+Lcom/android/server/biometrics/Flags;->notifyFingerprintsLoe()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/biometrics/biometrics_flags_lib/android_common/javac/srcjars/com/android/server/biometrics/Flags.java,33,5,33,25,
+Lcom/android/server/biometrics/Flags;->setIgnoreSpeedUp()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/biometrics/biometrics_flags_lib/android_common/javac/srcjars/com/android/server/biometrics/Flags.java,40,5,40,25,
+Lcom/android/server/biometrics/Flags;->useVhalForTesting()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/biometrics/biometrics_flags_lib/android_common/javac/srcjars/com/android/server/biometrics/Flags.java,47,5,47,25,

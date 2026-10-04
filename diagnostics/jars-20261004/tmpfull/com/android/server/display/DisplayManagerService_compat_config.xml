@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><config><compat-change enableSinceTargetSdk="31" id="170503758" name="DISPLAY_MODE_RETURNS_PHYSICAL_REFRESH_RATE"><meta-data definedIn="com.android.server.display.DisplayManagerService" sourcePosition="frameworks/base/services/core/java/com/android/server/display/DisplayManagerService.java:659"/></compat-change></config>

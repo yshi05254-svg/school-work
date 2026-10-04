@@ -1,0 +1,6 @@
+signature,file,startline,startcol,endline,endcol,properties
+Lcom/android/server/usb/flags/Flags;->allowRestrictionOfOverlayActivities()Z,out/soong/.intermediates/frameworks/base/services/usb/usb_flags_lib/android_common/javac/srcjars/com/android/server/usb/flags/Flags.java,19,5,19,25,
+Lcom/android/server/usb/flags/Flags;->checkUserActionUnlocked()Z,out/soong/.intermediates/frameworks/base/services/usb/usb_flags_lib/android_common/javac/srcjars/com/android/server/usb/flags/Flags.java,26,5,26,25,
+Lcom/android/server/usb/flags/Flags;->enableBindToMtpService()Z,out/soong/.intermediates/frameworks/base/services/usb/usb_flags_lib/android_common/javac/srcjars/com/android/server/usb/flags/Flags.java,33,5,33,25,
+Lcom/android/server/usb/flags/Flags;->maximizeUsbAudioVolumeWhenConnecting()Z,out/soong/.intermediates/frameworks/base/services/usb/usb_flags_lib/android_common/javac/srcjars/com/android/server/usb/flags/Flags.java,40,5,40,25,
+Lcom/android/server/usb/flags/Flags;->waitForAlsaScanResultsIfHasAudioInterface()Z,out/soong/.intermediates/frameworks/base/services/usb/usb_flags_lib/android_common/javac/srcjars/com/android/server/usb/flags/Flags.java,47,5,47,25,

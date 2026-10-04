@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><config><compat-change enableSinceTargetSdk="31" id="175408749" name="RESTRICT_DOMAINS"><meta-data definedIn="com.android.server.pm.verify.domain.DomainVerificationCollector" sourcePosition="frameworks/base/services/core/java/com/android/server/pm/verify/domain/DomainVerificationCollector.java:90"/></compat-change></config>

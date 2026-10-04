@@ -1,0 +1,4 @@
+signature,file,startline,startcol,endline,endcol,properties
+Lcom/android/server/utils/CustomFeatureFlags;->anrTimerFreezer()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/utils/com.android.server.utils_aconfig-java/android_common/javac/srcjars/com/android/server/utils/CustomFeatureFlags.java,20,5,20,25,
+Lcom/android/server/utils/CustomFeatureFlags;->anrTimerService()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/utils/com.android.server.utils_aconfig-java/android_common/javac/srcjars/com/android/server/utils/CustomFeatureFlags.java,27,5,27,25,
+Lcom/android/server/utils/CustomFeatureFlags;->anrTimerTrace()Z,out/soong/.intermediates/frameworks/base/services/core/java/com/android/server/utils/com.android.server.utils_aconfig-java/android_common/javac/srcjars/com/android/server/utils/CustomFeatureFlags.java,34,5,34,25,

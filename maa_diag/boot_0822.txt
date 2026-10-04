@@ -1,0 +1,8 @@
+isPrevious: true
+Build: OnePlus/PKG110/OP5D2BL1:16/UKQ1.231108.001/V.1e1c4bc_295f5d_27842a:user/release-keys
+Hardware: pineapple
+Revision: 0
+Bootloader: unknown
+Radio: null
+Kernel: Linux version 6.1.118-android14-11-o-gde312cf5bc85 (build-user@build-host) (Android (10087095, +pgo, +bolt, +lto, -mlgo, based on r487747c) clang version 17.0.2 (https://android.googlesource.com/toolchain/llvm-project d9f89f4d16663d5012e5c09495f3b30ece3d2362), LLD 17.0.2) #1 SMP PREEMPT Wed Aug 20 07:17:20 UTC 2025
+

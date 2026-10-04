@@ -1,0 +1,23 @@
+syntax = "proto3";
+package com.oplus.pantaconnect.sdk.timesync;
+
+option java_multiple_files = true;
+
+message Offset {
+  int64 wallTimeOffset = 1;
+  int64 bootTimeOffset = 2;
+  int64 rttTime = 3;
+  int64 deviation = 4;
+}
+
+message Options {
+  string deviceId = 1;
+  oneof details {
+    SocketOptions socketOptions = 2;
+  }
+}
+
+message SocketOptions {
+  string ip = 1;
+  int32 port = 2;
+}

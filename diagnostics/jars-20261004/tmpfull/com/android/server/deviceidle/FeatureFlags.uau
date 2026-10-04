@@ -1,0 +1,4 @@
+signature,file,startline,startcol,endline,endcol,properties
+Lcom/android/server/deviceidle/FeatureFlags;->disableWakelocksInLightIdle()Z,out/soong/.intermediates/frameworks/base/apex/jobscheduler/service/aconfig/service-jobscheduler-deviceidle.flags-aconfig-java/android_common/javac/srcjars/com/android/server/deviceidle/FeatureFlags.java,9,5,9,25,
+Lcom/android/server/deviceidle/FeatureFlags;->removeIdleLocation()Z,out/soong/.intermediates/frameworks/base/apex/jobscheduler/service/aconfig/service-jobscheduler-deviceidle.flags-aconfig-java/android_common/javac/srcjars/com/android/server/deviceidle/FeatureFlags.java,13,5,13,25,
+Lcom/android/server/deviceidle/FeatureFlags;->useCpuTimeForTempAllowlist()Z,out/soong/.intermediates/frameworks/base/apex/jobscheduler/service/aconfig/service-jobscheduler-deviceidle.flags-aconfig-java/android_common/javac/srcjars/com/android/server/deviceidle/FeatureFlags.java,17,5,17,25,

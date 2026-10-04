@@ -1,0 +1,2 @@
+signature,file,startline,startcol,endline,endcol,properties
+Lcom/android/server/print/Flags;->doNotIncludeCapabilities()Z,out/soong/.intermediates/frameworks/base/services/print/print_flags_lib/android_common/javac/srcjars/com/android/server/print/Flags.java,11,5,11,25,

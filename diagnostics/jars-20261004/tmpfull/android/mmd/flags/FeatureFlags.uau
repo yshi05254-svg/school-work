@@ -1,0 +1,2 @@
+signature,file,startline,startcol,endline,endcol,properties
+Landroid/mmd/flags/FeatureFlags;->mmdEnabled()Z,out/soong/.intermediates/system/memory/mmd/mmd_flags_lib/android_common/javac/srcjars/android/mmd/flags/FeatureFlags.java,9,5,9,25,

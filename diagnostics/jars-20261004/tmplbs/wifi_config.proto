@@ -1,0 +1,21 @@
+syntax = "proto3";
+package com.oplus.pantaconnect.wifi;
+
+option java_multiple_files = true;
+
+message WifiConfigResult {
+  string ssid = 1;
+  string preSharedKey = 2;
+  bytes allowedKeyManagement = 3;
+  string allowedKeyManagementStr = 4;
+}
+
+message WifiConfigParams {
+  bool ssid = 1;
+  bool preSharedKey = 2;
+  bool allowedKeyManagement = 3;
+}
+
+message RecordWifiConfigsResult {
+  repeated WifiConfigResult recordWifiConfigs = 1;
+}

@@ -1,0 +1,1621 @@
+Location Manager State:
+  User Info:
+    running users: u[0, 999]
+    current users: u[0, 999]
+  Location Settings:
+    Location Setting: 
+      [u0] true
+      [u999] true
+    Location Allow/Deny Packages:
+    Throttling Allow Packages:
+      com.oplus.location
+      com.google.android.gms
+      com.coloros.findmyphone
+    Emergency Bypass Allow Packages:
+      com.google.android.dialer[*]
+      com.google.android.gms[.thunderbird]
+  Location Providers:
+    passive provider:
+      service: registered
+      listeners:
+        10258/com.google.android.gms[fused_location_provider]/3C90AE89 Request[@+24855d3h14m7s806ms BALANCED, minUpdateInterval=0, hiddenFromAppOps, WorkSource{10258 com.google.android.gms}]
+        99910258/com.google.android.gms[fused_location_provider]/9846B1CC {bg} Request[@+24855d3h14m7s806ms BALANCED, minUpdateInterval=0, hiddenFromAppOps, WorkSource{99910258 com.google.android.gms}]
+        10244/com.oplus.location[OlsProxy]/BB1E4855 Request[@0 LOW_POWER, WorkSource{10244 com.oplus.location}]
+        10135/com.coloros.sceneservice/DAE1E9EB {bg} Request[PASSIVE, minUpdateInterval=+1m0s0ms, WorkSource{10135 com.coloros.sceneservice}]
+        10187/com.coloros.weather.service/176454A9 Request[PASSIVE, minUpdateInterval=+1m0s0ms, minUpdateDistance=100.0, WorkSource{10187 com.coloros.weather.service}]
+        1000/android[OplusLBS]/9E6003C6 Request[PASSIVE, minUpdateInterval=0, WorkSource{1000 android}]
+        1000/android[SensorNotificationService]/1459221F Request[PASSIVE, minUpdateInterval=+30m0s0ms, minUpdateDistance=100000.0, WorkSource{1000 android}]
+        10258/com.google.android.gms[network_location_provider]/3B3E8172 Request[PASSIVE, minUpdateInterval=0, hiddenFromAppOps, WorkSource{10258 com.google.android.gms}]
+        1000/android[OplusLBS]/E5CFB31F Request[PASSIVE, minUpdateInterval=0, WorkSource{1000 android}]
+        99910258/com.google.android.gms[network_location_provider]/5D751AA7 {bg} Request[PASSIVE, minUpdateInterval=0, hiddenFromAppOps, WorkSource{99910258 com.google.android.gms}]
+        10244/com.oplus.location/75CB46E6 Request[PASSIVE, minUpdateInterval=0, WorkSource{10244 com.oplus.location}]
+        10361/com.autonavi.minimap/5AD88FAD Request[PASSIVE, minUpdateInterval=+1s0ms, WorkSource{10361 com.autonavi.minimap}]
+        1000/android[OplusLBS]/BB1DA36B Request[PASSIVE, minUpdateInterval=+1s0ms, WorkSource{1000 android}]
+        10209/com.oplus.deepthinker/733CB4FA Request[PASSIVE, minUpdateInterval=+40s0ms, WorkSource{10209 com.oplus.deepthinker}]
+        1001/com.oplus.nhs/0C510FEE Request[PASSIVE, minUpdateInterval=0, WorkSource{1001 com.oplus.nhs}]
+        1000/com.oplus.subsys/D06CA928 Request[PASSIVE, minUpdateInterval=+1s0ms, WorkSource{1000 com.oplus.subsys}]
+        10118/com.oplus.metis/BE230489 Request[PASSIVE, minUpdateInterval=+1m0s0ms, minUpdateDistance=50.0, WorkSource{10118 com.oplus.metis}]
+      user 0:
+        last location=Location[network 23.00****,102.40**** hAcc=22.5 et=+22m15s728ms]
+        enabled=true
+      user 999:
+        last location=Location[network 23.00****,102.40**** hAcc=22.5 et=+22m15s728ms]
+        enabled=true
+      allowed=true
+      identity=1000/android[LocationService]
+      properties=ProviderProperties[powerUsage=Low, accuracy=Fine]
+    fused provider:
+      service: ProviderRequest[OFF]
+      user 0:
+        last location=null
+        enabled=true
+      user 999:
+        last location=null
+        enabled=true
+      allowed=true
+      identity=1000/com.android.location.fused
+      properties=ProviderProperties[powerUsage=Low, accuracy=Fine, supports=[bearing,speed,altitude]]
+      target service=1000/com.android.location.fused/.FusedLocationService@0
+      connected=true
+    gps provider:
+      service: ProviderRequest[@+1s0ms, HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+      listeners:
+        10361/com.autonavi.minimap/9CD805BF Request[@+1s0ms HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+      user 0:
+        last location=null
+        enabled=true
+      user 999:
+        last location=null
+        enabled=true
+      allowed=true
+      identity=1000/android[GnssService]
+      properties=ProviderProperties[powerUsage=High, accuracy=Fine, requires=satellite, supports=[bearing,speed,altitude]]
+      mStarted=true   (changed +6m5s229ms ago)
+      isInPowerSavingMode=false
+      mBatchingEnabled=true
+      mBatchingStarted=false
+      mBatchSize=20
+      mFixInterval=1000
+      GNSS_KPI_START
+        KPI logging start time: +21s88ms
+        KPI logging end time: +26m21s675ms
+        Number of location reports: 0
+        Number of TTFF reports: 0
+        Number of position accuracy reports: 0
+        Number of CN0 reports: 27
+        Top 4 Avg CN0 mean (dB-Hz): 23.995370423352277
+        Top 4 Avg CN0 standard deviation (dB-Hz): 1.8305791606105315
+        Total number of sv status messages processed: 32734
+        Total number of L5 sv status messages processed: 42
+        Total number of sv status messages processed, where sv is used in fix: 0
+        Total number of L5 sv status messages processed, where sv is used in fix: 0
+        Number of L5 CN0 reports: 0
+        Used-in-fix constellation types: 
+      GNSS_KPI_END
+      Power Metrics
+        Time on battery (min): 0.15206666666666666
+        Amount of time (while on battery) Top 4 Avg CN0 > 20.0 dB-Hz (min): 0.10045
+        Amount of time (while on battery) Top 4 Avg CN0 <= 20.0 dB-Hz (min): 0.05043333333333333
+        Energy consumed while on battery (mAh): 0.0
+      Hardware Version: 
+    network provider:
+      service: ProviderRequest[OFF]
+      listeners:
+        1000/android[GnssService]/9C3FA9B0 Request[PASSIVE, minUpdateInterval=0, hiddenFromAppOps, WorkSource{1000 android}]
+      user 0:
+        last location=Location[network 23.00****,102.40**** hAcc=22.5 et=+22m15s728ms]
+        enabled=true
+      user 999:
+        last location=Location[network 23.00****,102.40**** hAcc=22.5 et=+22m15s728ms]
+        enabled=true
+      allowed=true
+      identity=10244/com.oplus.location
+      properties=ProviderProperties[powerUsage=Low, accuracy=Coarse, requires=network,cell, hasMonetaryCost, supports=[bearing,speed,altitude]]
+      target service=10244/com.oplus.location/.nlp.NetworkLocationService@2
+      connected=true
+  Historical Aggregate Location Provider Data:
+    GnssMeasurement:
+      10395/com.tencent.mm: min/max interval = 0s/0s, total/active/foreground duration = +296ms/0/0, locations = 0
+      10361/com.autonavi.minimap: min/max interval = 0s/0s, total/active/foreground duration = +22m43s610ms/0/0, locations = 0
+    passive:
+      10118/com.oplus.metis: min/max interval = passive/passive, total/active/foreground duration = +25m41s533ms/+25m41s481ms/+25m41s481ms, locations = 1
+      10258/com.google.android.gms[fused_location_provider]: min/max interval = 9223372036854775s/9223372036854775s, total/active/foreground duration = +25m50s563ms/+25m50s551ms/+25m50s551ms, locations = 10
+      1000/android[OplusLBS]: min/max interval = passive/passive, total/active/foreground duration = +25m51s648ms/+25m51s637ms/+25m51s637ms, locations = 35
+      10135/com.coloros.sceneservice: min/max interval = passive/passive, total/active/foreground duration = +25m38s675ms/+25m38s662ms/+2m21s213ms, locations = 8
+      1000/com.oplus.subsys: min/max interval = passive/passive, total/active/foreground duration = +25m58s94ms/+25m58s93ms/+25m58s93ms, locations = 10
+      99910258/com.google.android.gms[network_location_provider]: min/max interval = passive/passive, total/active/foreground duration = +25m18s962ms/+25m18s865ms/0, locations = 11
+      1000/android[SensorNotificationService]: min/max interval = passive/passive, total/active/foreground duration = +25m56s966ms/+25m56s963ms/+25m56s963ms, locations = 1
+      10258/com.google.android.gms[network_location_provider]: min/max interval = passive/passive, total/active/foreground duration = +25m48s162ms/+25m48s152ms/+25m48s152ms, locations = 10
+      10395/com.tencent.mm: min/max interval = passive/passive, total/active/foreground duration = +365ms/+345ms/+345ms, locations = 2
+      10361/com.autonavi.minimap: min/max interval = passive/passive, total/active/foreground duration = +22m43s839ms/+22m43s809ms/+22m40s922ms, locations = 8
+      10187/com.coloros.weather.service: min/max interval = passive/passive, total/active/foreground duration = +14m0s316ms/+14m0s308ms/+11m50s841ms, locations = 2
+      10244/com.oplus.location: min/max interval = passive/passive, total/active/foreground duration = +25m49s433ms/+25m49s407ms/+25m49s407ms, locations = 10
+      10244/com.oplus.location[OlsProxy]: min/max interval = 0s/0s, total/active/foreground duration = +25m48s804ms/+25m48s713ms/+25m48s713ms, locations = 10
+      1001/com.oplus.nhs: min/max interval = passive/passive, total/active/foreground duration = +25m59s649ms/+25m59s648ms/+25m59s648ms, locations = 10
+      99910258/com.google.android.gms[fused_location_provider]: min/max interval = 9223372036854775s/9223372036854775s, total/active/foreground duration = +25m19s569ms/+25m19s435ms/0, locations = 11
+      10209/com.oplus.deepthinker: min/max interval = passive/passive, total/active/foreground duration = +25m48s676ms/+25m48s619ms/+25m48s619ms, locations = 7
+    gps:
+      1000/android[ArcBrightness]: min/max interval = 0s/0s, total/active/foreground duration = +1s291ms/+1s288ms/+1s288ms, locations = 0
+      10395/com.tencent.mm: min/max interval = 1s/1s, total/active/foreground duration = +320ms/+312ms/+312ms, locations = 0
+      10361/com.autonavi.minimap: min/max interval = 0s/1s, total/active/foreground duration = +22m43s622ms/+22m43s587ms/+22m40s707ms, locations = 0
+    network:
+      1000/android[OplusLBS]: min/max interval = 1s/1s, total/active/foreground duration = +291ms/+262ms/+262ms, locations = 3
+      10187/com.coloros.weather.service: min/max interval = 5s/5s, total/active/foreground duration = +67ms/+58ms/+58ms, locations = 1
+      1001/com.android.phone: min/max interval = 1s/1s, total/active/foreground duration = +17s378ms/+17s366ms/+17s366ms, locations = 1
+      1000/android[GnssService]: min/max interval = 1s/passive, total/active/foreground duration = +26m0s565ms/+26m0s564ms/+26m0s564ms, locations = 12
+      1000/com.oplus.nas: min/max interval = 3600s/3600s, total/active/foreground duration = +9s74ms/+9s47ms/+9s51ms, locations = 1
+      10157/com.coloros.assistantscreen: min/max interval = 0s/0s, total/active/foreground duration = +17s465ms/+17s408ms/+17s446ms, locations = 2
+  Historical Aggregate Gnss Measurement Provider Data:
+    10395/com.tencent.mm: min/max interval = 0s/0s, total duration = +297ms, tracking mode = always duty-cycling, GNSS measurement events = 0
+    10361/com.autonavi.minimap: min/max interval = 0s/0s, total duration = +22m43s620ms, tracking mode = always duty-cycling, GNSS measurement events = 645
+  GNSS Manager:
+    Capabilities: [SCHEDULING MSB GEOFENCING MEASUREMENTS LOW_POWER_MODE SATELLITE_BLOCKLIST SATELLITE_PVT MEASUREMENT_CORRECTIONS MEASUREMENT_CORRECTIONS_FOR_DRIVING LOS_SATS EXCESS_PATH_LENGTH REFLECTING_PLANE TOTAL_POWER signalTypes=[GnssSignalType[Constellation=1, CarrierFrequencyHz=1.57542E9, CodeType=C], GnssSignalType[Constellation=1, CarrierFrequencyHz=1.17645E9, CodeType=Q], GnssSignalType[Constellation=3, CarrierFrequencyHz=1.602E9, CodeType=C], GnssSignalType[Constellation=6, CarrierFrequencyHz=1.57542E9, CodeType=C], GnssSignalType[Constellation=6, CarrierFrequencyHz=1.17645E9, CodeType=Q], GnssSignalType[Constellation=5, CarrierFrequencyHz=1.561098E9, CodeType=I], GnssSignalType[Constellation=5, CarrierFrequencyHz=1.57542E9, CodeType=P], GnssSignalType[Constellation=4, CarrierFrequencyHz=1.57542E9, CodeType=C], GnssSignalType[Constellation=4, CarrierFrequencyHz=1.17645E9, CodeType=Q], GnssSignalType[Constellation=5, CarrierFrequencyHz=1.17645E9, CodeType=P]]]
+    GNSS Hardware Model Name: qcom;MPSS.DE.5.0-02708-LANAI_GEN_PACK-1;
+    Status Provider:
+      service: registered
+      listeners:
+        10244/com.oplus.location[OlsProxy]/7E9DD77F
+        1001/com.oplus.nhs/FFE4B310
+        10258/com.google.android.gms[network_location_provider]/20DAA6B1
+        99910258/com.google.android.gms[network_location_provider]/8D58BE04 {bg}
+        10361/com.autonavi.minimap/42AEF5DD
+        1000/android[OplusLBS]/C6453A63
+        10244/com.oplus.location/63B77FC6
+        10209/com.oplus.deepthinker/AC78ED94
+    Measurements Provider:
+      service: GnssMeasurementRequest[@0]
+      listeners:
+        10361/com.autonavi.minimap/CC6822DD GnssMeasurementRequest[@0]
+      last measurements=[elapsedRealtimeNs=1580917733405 measurementCount=1 avgBasebandCn0=20.1]
+    Antenna Info Provider:
+      Antenna Infos: null
+      service: unregistered
+    Last Known Power Stats:
+      time: 39027 (1542653 ms ago) +/- 5total power: 0.0mJ
+  Geofence Manager:
+    service: unregistered
+  Event Log:
+    10-03 19:45:13.999: passive provider [u0] enabled
+    10-03 19:45:14.469: dump nlp roaming key flags, in region: true, gms restrict: false, access google blocked: true, os nlp disabled: false
+    10-03 19:45:14.470: dump nlp roaming key flags, in region: true, gms restrict: false, access google blocked: true, os nlp disabled: false
+    10-03 19:45:14.472: dump nlp roaming key flags, in region: true, gms restrict: false, access google blocked: true, os nlp disabled: false
+    10-03 19:45:15.595: gps provider [u0] enabled
+    10-03 19:45:15.597: Network location service rebinding to nlp
+    10-03 19:45:15.597: network provider [u0] enabled
+    10-03 19:45:15.598: set network provider allowed to: false || false || true
+    10-03 19:45:15.599: dump nlp roaming key flags, in region: true, gms restrict: false, access google blocked: true, os nlp disabled: false
+    10-03 19:45:15.613: network provider +registration 1000/android[GnssService]/9C3FA9B0 -> Request[PASSIVE, minUpdateInterval=0, hiddenFromAppOps, WorkSource{1000 android}]
+    10-03 19:45:15.613: network provider client 1000/android[GnssService]/9C3FA9B0 -> permitted
+    10-03 19:45:15.614: network provider client 1000/android[GnssService]/9C3FA9B0 -> foreground
+    10-03 19:45:15.692: passive provider [u0] enabled
+    10-03 19:45:15.692: gps provider [u0] enabled
+    10-03 19:45:15.692: network provider [u0] enabled
+    10-03 19:45:16.374: fused provider [u0] enabled
+    10-03 19:45:16.379: [u0] visible
+    10-03 19:45:16.529: passive provider +registration 1001/com.oplus.nhs/0C510FEE -> Request[PASSIVE, minUpdateInterval=0, WorkSource{1001 com.oplus.nhs}]
+    10-03 19:45:16.529: passive provider client 1001/com.oplus.nhs/0C510FEE -> permitted
+    10-03 19:45:16.530: passive provider client 1001/com.oplus.nhs/0C510FEE -> foreground
+    10-03 19:45:16.533: passive provider request = ProviderRequest[@0]
+    10-03 19:45:18.082: passive provider +registration 1000/com.oplus.subsys/D06CA928 -> Request[PASSIVE, minUpdateInterval=+1s0ms, WorkSource{1000 com.oplus.subsys}]
+    10-03 19:45:18.083: passive provider client 1000/com.oplus.subsys/D06CA928 -> permitted
+    10-03 19:45:18.084: passive provider client 1000/com.oplus.subsys/D06CA928 -> foreground
+    10-03 19:45:19.211: passive provider +registration 1000/android[SensorNotificationService]/1459221F -> Request[PASSIVE, minUpdateInterval=+30m0s0ms, minUpdateDistance=100000.0, WorkSource{1000 android}]
+    10-03 19:45:19.211: passive provider client 1000/android[SensorNotificationService]/1459221F -> permitted
+    10-03 19:45:19.214: passive provider client 1000/android[SensorNotificationService]/1459221F -> foreground
+    10-03 19:45:20.571: [u999] visible
+    10-03 19:45:21.100: passive provider [u999] enabled
+    10-03 19:45:21.101: fused provider [u999] enabled
+    10-03 19:45:21.101: gps provider [u999] enabled
+    10-03 19:45:21.101: network provider [u999] enabled
+    10-03 19:45:24.529: passive provider +registration 1000/android[OplusLBS]/BB1DA36B -> Request[PASSIVE, minUpdateInterval=+1s0ms, WorkSource{1000 android}]
+    10-03 19:45:24.529: passive provider client 1000/android[OplusLBS]/BB1DA36B -> permitted
+    10-03 19:45:24.540: passive provider client 1000/android[OplusLBS]/BB1DA36B -> foreground
+    10-03 19:45:25.614: passive provider +registration 10258/com.google.android.gms[fused_location_provider]/3C90AE89 -> Request[@+24855d3h14m7s806ms BALANCED, minUpdateInterval=0, hiddenFromAppOps, WorkSource{10258 com.google.android.gms}]
+    10-03 19:45:25.614: passive provider client 10258/com.google.android.gms[fused_location_provider]/3C90AE89 -> permitted
+    10-03 19:45:25.626: passive provider client 10258/com.google.android.gms[fused_location_provider]/3C90AE89 -> foreground
+    10-03 19:45:25.887: passive provider +registration 10187/com.coloros.weather.service/C0C0D907 -> Request[PASSIVE, minUpdateInterval=+1m0s0ms, minUpdateDistance=100.0, WorkSource{10187 com.coloros.weather.service}]
+    10-03 19:45:25.887: passive provider client 10187/com.coloros.weather.service/C0C0D907 -> permitted
+    10-03 19:45:25.890: passive provider client 10187/com.coloros.weather.service/C0C0D907 -> foreground
+    10-03 19:45:26.733: passive provider +registration 10135/com.coloros.sceneservice/7B6E3E07 -> Request[PASSIVE, minUpdateInterval=+1m0s0ms, WorkSource{10135 com.coloros.sceneservice}]
+    10-03 19:45:26.733: passive provider client 10135/com.coloros.sceneservice/7B6E3E07 -> permitted
+    10-03 19:45:26.739: passive provider client 10135/com.coloros.sceneservice/7B6E3E07 -> foreground
+    10-03 19:45:26.745: passive provider +registration 10244/com.oplus.location/75CB46E6 -> Request[PASSIVE, minUpdateInterval=0, WorkSource{10244 com.oplus.location}]
+    10-03 19:45:26.745: passive provider client 10244/com.oplus.location/75CB46E6 -> permitted
+    10-03 19:45:26.771: passive provider client 10244/com.oplus.location/75CB46E6 -> foreground
+    10-03 19:45:27.374: passive provider +registration 10244/com.oplus.location[OlsProxy]/BB1E4855 -> Request[@0 LOW_POWER, WorkSource{10244 com.oplus.location}]
+    10-03 19:45:27.374: passive provider client 10244/com.oplus.location[OlsProxy]/BB1E4855 -> permitted
+    10-03 19:45:27.465: passive provider client 10244/com.oplus.location[OlsProxy]/BB1E4855 -> foreground
+    10-03 19:45:27.502: passive provider +registration 10209/com.oplus.deepthinker/733CB4FA -> Request[PASSIVE, minUpdateInterval=+40s0ms, WorkSource{10209 com.oplus.deepthinker}]
+    10-03 19:45:27.502: passive provider client 10209/com.oplus.deepthinker/733CB4FA -> permitted
+    10-03 19:45:27.558: passive provider client 10209/com.oplus.deepthinker/733CB4FA -> foreground
+    10-03 19:45:27.637: network provider +registration 1001/com.android.phone/6841238C -> Request[@+1s0ms BALANCED, minUpdateDistance=50.0, WorkSource{1001 com.android.phone}]
+    10-03 19:45:27.637: network provider client 1001/com.android.phone/6841238C -> permitted
+    10-03 19:45:27.649: network provider client 1001/com.android.phone/6841238C -> foreground
+    10-03 19:45:27.650: network provider request = ProviderRequest[@+1s0ms, WorkSource{1001 com.android.phone}]
+    10-03 19:45:28.015: passive provider +registration 10258/com.google.android.gms[network_location_provider]/3B3E8172 -> Request[PASSIVE, minUpdateInterval=0, hiddenFromAppOps, WorkSource{10258 com.google.android.gms}]
+    10-03 19:45:28.015: passive provider client 10258/com.google.android.gms[network_location_provider]/3B3E8172 -> permitted
+    10-03 19:45:28.025: passive provider client 10258/com.google.android.gms[network_location_provider]/3B3E8172 -> foreground
+    10-03 19:45:30.224: network provider +registration 10157/com.coloros.assistantscreen/2E4A752C -> Request[@0 BALANCED, duration=+30s0ms, WorkSource{10157 com.coloros.assistantscreen}]
+    10-03 19:45:30.224: network provider client 10157/com.coloros.assistantscreen/2E4A752C -> permitted
+    10-03 19:45:30.232: network provider client 10157/com.coloros.assistantscreen/2E4A752C -> foreground
+    10-03 19:45:30.244: network provider request = ProviderRequest[@0, WorkSource{1001 com.android.phone, 10157 com.coloros.assistantscreen}]
+    10-03 19:45:34.644: passive provider +registration 10118/com.oplus.metis/BE230489 -> Request[PASSIVE, minUpdateInterval=+1m0s0ms, minUpdateDistance=50.0, WorkSource{10118 com.oplus.metis}]
+    10-03 19:45:34.645: passive provider client 10118/com.oplus.metis/BE230489 -> permitted
+    10-03 19:45:34.696: passive provider client 10118/com.oplus.metis/BE230489 -> foreground
+    10-03 19:45:35.962: network provider +registration 1000/com.oplus.nas/8AD47030 -> Request[@+1h0m0s0ms BALANCED, minUpdateDistance=50.0, WorkSource{1000 com.oplus.nas}]
+    10-03 19:45:35.962: network provider client 1000/com.oplus.nas/8AD47030 -> permitted
+    10-03 19:45:35.985: network provider client 1000/com.oplus.nas/8AD47030 -> foreground
+    10-03 19:45:36.141: passive provider +registration 99910258/com.google.android.gms[fused_location_provider]/E62DEE21 -> Request[@+24855d3h14m7s806ms BALANCED, minUpdateInterval=0, hiddenFromAppOps, WorkSource{99910258 com.google.android.gms}]
+    10-03 19:45:36.141: passive provider client 99910258/com.google.android.gms[fused_location_provider]/E62DEE21 -> permitted
+    10-03 19:45:36.757: passive provider +registration 99910258/com.google.android.gms[network_location_provider]/531CBDC4 -> Request[PASSIVE, minUpdateInterval=0, hiddenFromAppOps, WorkSource{99910258 com.google.android.gms}]
+    10-03 19:45:36.757: passive provider client 99910258/com.google.android.gms[network_location_provider]/531CBDC4 -> permitted
+    10-03 19:45:38.478: passive provider client 10187/com.coloros.weather.service/C0C0D907 -> background
+    10-03 19:45:44.684: gps provider +registration 1000/android[ArcBrightness]/8B5F475D -> Request[@0 HIGH_ACCURACY, WorkSource{1000 android}]
+    10-03 19:45:44.684: gps provider client 1000/android[ArcBrightness]/8B5F475D -> permitted
+    10-03 19:45:44.687: gps provider client 1000/android[ArcBrightness]/8B5F475D -> foreground
+    10-03 19:45:44.688: gps provider request = ProviderRequest[@0, HIGH_ACCURACY, WorkSource{1000 android}]
+    10-03 19:45:44.689: GPS Engine State: ON WorkSource Size: 1
+    10-03 19:45:44.689: passive provider +registration 1000/android[OplusLBS]/E5CFB31F -> Request[PASSIVE, minUpdateInterval=0, WorkSource{1000 android}]
+    10-03 19:45:44.689: passive provider client 1000/android[OplusLBS]/E5CFB31F -> permitted
+    10-03 19:45:44.690: passive provider client 1000/android[OplusLBS]/E5CFB31F -> foreground
+    10-03 19:45:44.691: passive provider +registration 1000/android[OplusLBS]/9E6003C6 -> Request[PASSIVE, minUpdateInterval=0, WorkSource{1000 android}]
+    10-03 19:45:44.691: passive provider client 1000/android[OplusLBS]/9E6003C6 -> permitted
+    10-03 19:45:44.692: passive provider client 1000/android[OplusLBS]/9E6003C6 -> foreground
+    10-03 19:45:44.712: network provider +registration 1000/android[GnssService]/7B183393 -> Request[@+1s0ms LOW_POWER, duration=+10s0ms, maxUpdates=1, WorkSource{1000 android}]
+    10-03 19:45:44.712: network provider client 1000/android[GnssService]/7B183393 -> permitted
+    10-03 19:45:44.712: network provider client 1000/android[GnssService]/7B183393 -> foreground
+    10-03 19:45:44.716: network provider request = ProviderRequest[@0, WorkSource{1000 android, 1001 com.android.phone, 10157 com.coloros.assistantscreen}]
+    10-03 19:45:44.997: network provider received location[1]
+    10-03 19:45:44.997: network provider delivered location[1] to 10157/com.coloros.assistantscreen/2E4A752C
+    10-03 19:45:44.998: network provider request = ProviderRequest[@+1s0ms, WorkSource{1000 android, 1001 com.android.phone}]
+    10-03 19:45:45.000: network provider delivered location[1] to 1000/com.oplus.nas/8AD47030
+    10-03 19:45:45.000: network provider delivered location[1] to 1000/android[GnssService]/9C3FA9B0
+    10-03 19:45:45.001: network provider delivered location[1] to 1001/com.android.phone/6841238C
+    10-03 19:45:45.002: network provider -registration 10157/com.coloros.assistantscreen/2E4A752C
+    10-03 19:45:45.014: network provider -registration 1000/android[GnssService]/7B183393
+    10-03 19:45:45.014: network provider request = ProviderRequest[@+1s0ms, WorkSource{1001 com.android.phone}]
+    10-03 19:45:45.014: network provider delivered location[1] to 1000/android[GnssService]/7B183393
+    10-03 19:45:45.015: network provider -registration 1001/com.android.phone/6841238C
+    10-03 19:45:45.015: network provider request = ProviderRequest[@+1h0m0s0ms, WorkSource{1000 com.oplus.nas}]
+    10-03 19:45:45.016: network provider received location[1]
+    10-03 19:45:45.018: network provider received location[1]
+    10-03 19:45:45.024: network provider delivered location[1] to 1000/android[GnssService]/9C3FA9B0
+    10-03 19:45:45.024: network provider received location[1]
+    10-03 19:45:45.025: network provider delivered location[1] to 1000/android[GnssService]/9C3FA9B0
+    10-03 19:45:45.025: network provider delivered location[1] to 1000/android[GnssService]/9C3FA9B0
+    10-03 19:45:45.036: network provider -registration 1000/com.oplus.nas/8AD47030
+    10-03 19:45:45.036: network provider request = ProviderRequest[OFF]
+    10-03 19:45:45.975: gps provider -registration 1000/android[ArcBrightness]/8B5F475D
+    10-03 19:45:45.978: gps provider request = ProviderRequest[OFF]
+    10-03 19:45:45.979: GPS Engine State: OFF WorkSource Size: 0
+    10-03 19:45:45.983: passive provider -registration 1000/android[OplusLBS]/E5CFB31F
+    10-03 19:45:55.457: passive provider +registration 10361/com.autonavi.minimap/121EED2C -> Request[PASSIVE, minUpdateInterval=+1s0ms, WorkSource{10361 com.autonavi.minimap}]
+    10-03 19:45:55.459: passive provider client 10361/com.autonavi.minimap/121EED2C -> permitted
+    10-03 19:45:55.464: passive provider client 10361/com.autonavi.minimap/121EED2C -> foreground
+    10-03 19:45:55.515: gps provider +registration 10361/com.autonavi.minimap/0F5DD73A -> Request[@+1s0ms HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 19:45:55.515: gps provider client 10361/com.autonavi.minimap/0F5DD73A -> permitted
+    10-03 19:45:55.517: gps provider client 10361/com.autonavi.minimap/0F5DD73A -> foreground
+    10-03 19:45:55.517: gps provider request = ProviderRequest[@+1s0ms, HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 19:45:55.520: GPS Engine State: ON WorkSource Size: 1
+    10-03 19:45:55.522: gnss measurements +registration 10361/com.autonavi.minimap/4D586ADF -> GnssMeasurementRequest[@0]
+    10-03 19:45:55.522: GnssMeasurement +registration 10361/com.autonavi.minimap/4D586ADF -> GnssMeasurementRequest[@0]
+    10-03 19:45:55.544: passive provider +registration 1000/android[OplusLBS]/E5CFB31F -> Request[PASSIVE, minUpdateInterval=0, WorkSource{1000 android}]
+    10-03 19:45:55.544: passive provider client 1000/android[OplusLBS]/E5CFB31F -> permitted
+    10-03 19:45:55.550: passive provider client 1000/android[OplusLBS]/E5CFB31F -> foreground
+    10-03 19:45:56.991: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:45:57.970: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:45:58.973: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:45:59.976: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:00.980: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:01.987: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:02.972: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:03.976: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:04.980: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:05.982: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:06.973: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:07.980: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:08.985: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:09.994: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:10.987: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:11.983: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:12.975: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:13.975: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:14.982: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:15.974: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:16.979: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:17.972: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:18.986: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:19.969: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:20.982: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:21.969: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:22.985: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:23.970: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:24.989: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:25.977: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:26.974: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:27.970: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:28.982: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:29.983: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:30.990: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:31.978: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:32.989: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:33.978: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:34.990: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:35.978: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:36.983: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:37.985: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:38.987: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:39.982: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:40.984: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:41.988: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:42.981: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:43.986: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:44.982: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:45.988: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:46.983: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:47.993: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:48.993: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:49.995: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:50.986: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:51.999: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:52.972: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:54.001: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:54.984: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:46:55.615: passive provider -registration 1000/android[OplusLBS]/E5CFB31F
+    10-03 19:46:55.619: GPS Engine State: ON WorkSource Size: 1
+    10-03 19:47:47.948: passive provider -registration 10187/com.coloros.weather.service/C0C0D907
+    10-03 19:47:47.952: passive provider -registration 10135/com.coloros.sceneservice/7B6E3E07
+    10-03 19:47:48.086: passive provider -registration 99910258/com.google.android.gms[network_location_provider]/531CBDC4
+    10-03 19:47:48.090: passive provider -registration 99910258/com.google.android.gms[fused_location_provider]/E62DEE21
+    10-03 19:47:58.721: passive provider +registration 10135/com.coloros.sceneservice/DAE1E9EB -> Request[PASSIVE, minUpdateInterval=+1m0s0ms, WorkSource{10135 com.coloros.sceneservice}]
+    10-03 19:47:58.722: passive provider client 10135/com.coloros.sceneservice/DAE1E9EB -> permitted
+    10-03 19:48:08.544: passive provider +registration 99910258/com.google.android.gms[network_location_provider]/5D751AA7 -> Request[PASSIVE, minUpdateInterval=0, hiddenFromAppOps, WorkSource{99910258 com.google.android.gms}]
+    10-03 19:48:08.544: passive provider client 99910258/com.google.android.gms[network_location_provider]/5D751AA7 -> permitted
+    10-03 19:48:08.558: passive provider +registration 99910258/com.google.android.gms[fused_location_provider]/9846B1CC -> Request[@+24855d3h14m7s806ms BALANCED, minUpdateInterval=0, hiddenFromAppOps, WorkSource{99910258 com.google.android.gms}]
+    10-03 19:48:08.558: passive provider client 99910258/com.google.android.gms[fused_location_provider]/9846B1CC -> permitted
+    10-03 19:50:45.041: network provider +registration 1000/android[OplusLBS]/10ED14AC -> Request[@+1s0ms BALANCED, WorkSource{1000 android}]
+    10-03 19:50:45.041: network provider client 1000/android[OplusLBS]/10ED14AC -> permitted
+    10-03 19:50:45.050: network provider client 1000/android[OplusLBS]/10ED14AC -> foreground
+    10-03 19:50:45.060: network provider request = ProviderRequest[@+1s0ms, WorkSource{1000 android}]
+    10-03 19:50:45.110: network provider received location[1]
+    10-03 19:50:45.114: network provider delivered location[1] to 1000/android[GnssService]/9C3FA9B0
+    10-03 19:50:45.144: network provider delivered location[1] to 1000/android[OplusLBS]/10ED14AC
+    10-03 19:50:45.149: network provider -registration 1000/android[OplusLBS]/10ED14AC
+    10-03 19:50:45.149: network provider request = ProviderRequest[OFF]
+    10-03 19:55:45.170: network provider +registration 1000/android[OplusLBS]/10ED14AC -> Request[@+1s0ms BALANCED, WorkSource{1000 android}]
+    10-03 19:55:45.171: network provider client 1000/android[OplusLBS]/10ED14AC -> permitted
+    10-03 19:55:45.183: network provider client 1000/android[OplusLBS]/10ED14AC -> foreground
+    10-03 19:55:45.192: network provider request = ProviderRequest[@+1s0ms, WorkSource{1000 android}]
+    10-03 19:55:45.234: network provider received location[1]
+    10-03 19:55:45.239: network provider delivered location[1] to 1000/android[OplusLBS]/10ED14AC
+    10-03 19:55:45.259: network provider -registration 1000/android[OplusLBS]/10ED14AC
+    10-03 19:55:45.259: network provider request = ProviderRequest[OFF]
+    10-03 19:55:45.262: network provider delivered location[1] to 1000/android[GnssService]/9C3FA9B0
+    10-03 19:57:10.170: passive provider +registration 1000/android[OplusLBS]/E5CFB31F -> Request[PASSIVE, minUpdateInterval=0, WorkSource{1000 android}]
+    10-03 19:57:10.170: passive provider client 1000/android[OplusLBS]/E5CFB31F -> permitted
+    10-03 19:57:10.178: passive provider client 1000/android[OplusLBS]/E5CFB31F -> foreground
+    10-03 19:57:10.196: GPS Engine State: ON WorkSource Size: 1
+    10-03 19:57:11.991: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:12.981: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:13.995: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:14.976: gnss measurements delivered GnssMeasurements[2] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:15.997: gnss measurements delivered GnssMeasurements[2] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:16.997: gnss measurements delivered GnssMeasurements[2] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:17.983: gnss measurements delivered GnssMeasurements[2] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:18.993: gnss measurements delivered GnssMeasurements[3] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:20.988: gnss measurements delivered GnssMeasurements[3] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:22.035: gnss measurements delivered GnssMeasurements[2] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:23.040: gnss measurements delivered GnssMeasurements[3] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:24.068: gnss measurements delivered GnssMeasurements[2] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:25.027: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:26.036: gnss measurements delivered GnssMeasurements[3] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:27.036: gnss measurements delivered GnssMeasurements[2] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:28.039: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:29.029: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:29.224: network provider +registration 1000/android[GnssService]/BB9A4B37 -> Request[@+1s0ms LOW_POWER, duration=+10s0ms, maxUpdates=1, WorkSource{1000 android}]
+    10-03 19:57:29.224: network provider client 1000/android[GnssService]/BB9A4B37 -> permitted
+    10-03 19:57:29.226: network provider client 1000/android[GnssService]/BB9A4B37 -> foreground
+    10-03 19:57:29.234: network provider request = ProviderRequest[@+1s0ms, LOW_POWER, WorkSource{1000 android}]
+    10-03 19:57:29.252: network provider received location[1]
+    10-03 19:57:29.254: network provider delivered location[1] to 1000/android[GnssService]/9C3FA9B0
+    10-03 19:57:29.268: network provider -registration 1000/android[GnssService]/BB9A4B37
+    10-03 19:57:29.268: network provider delivered location[1] to 1000/android[GnssService]/BB9A4B37
+    10-03 19:57:29.269: network provider request = ProviderRequest[OFF]
+    10-03 19:57:30.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:31.030: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:32.040: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:33.028: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:34.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:35.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:36.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:37.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:38.026: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:39.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:40.030: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:41.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:42.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:43.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:44.031: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:45.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:46.037: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:47.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:48.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:49.027: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:50.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:51.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:52.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:53.029: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:54.039: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:55.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:56.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:57.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:58.030: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:57:59.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:00.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:01.037: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:02.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:03.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:04.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:05.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:06.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:07.038: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:08.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:09.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:10.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:11.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:12.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:13.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:14.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:15.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:16.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:17.031: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:18.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:19.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:20.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:21.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:22.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:23.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:24.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:25.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:26.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:27.037: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:28.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:29.039: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:30.052: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:31.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:32.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:33.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:34.053: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:35.031: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:36.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:37.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:38.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:39.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:40.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:41.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:42.053: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:43.039: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:44.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:45.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:46.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:47.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:48.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:49.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:50.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:58:50.311: passive provider -registration 1000/android[OplusLBS]/E5CFB31F
+    10-03 19:58:50.323: GPS Engine State: ON WorkSource Size: 1
+    10-03 19:59:37.107: passive provider client 10361/com.autonavi.minimap/121EED2C -> background
+    10-03 19:59:37.107: gps provider client 10361/com.autonavi.minimap/0F5DD73A -> background
+    10-03 19:59:37.107: gps provider request = ProviderRequest[@+10m0s0ms, HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 19:59:37.108: GPS Engine State: OFF WorkSource Size: 1
+    10-03 19:59:37.126: passive provider -registration 10361/com.autonavi.minimap/121EED2C
+    10-03 19:59:37.126: gps provider -registration 10361/com.autonavi.minimap/0F5DD73A
+    10-03 19:59:37.129: gps provider request = ProviderRequest[OFF]
+    10-03 19:59:37.129: GnssMeasurement -registration 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:59:37.129: gnss measurements -registration 10361/com.autonavi.minimap/4D586ADF
+    10-03 19:59:37.923: passive provider +registration 10187/com.coloros.weather.service/176454A9 -> Request[PASSIVE, minUpdateInterval=+1m0s0ms, minUpdateDistance=100.0, WorkSource{10187 com.coloros.weather.service}]
+    10-03 19:59:37.923: passive provider client 10187/com.coloros.weather.service/176454A9 -> permitted
+    10-03 19:59:37.925: passive provider client 10187/com.coloros.weather.service/176454A9 -> foreground
+    10-03 19:59:37.941: network provider +registration 10187/com.coloros.weather.service/788C5829 -> Request[@+5s0ms BALANCED, minUpdateDistance=5.0, WorkSource{10187 com.coloros.weather.service}]
+    10-03 19:59:37.941: network provider client 10187/com.coloros.weather.service/788C5829 -> permitted
+    10-03 19:59:37.950: network provider client 10187/com.coloros.weather.service/788C5829 -> foreground
+    10-03 19:59:37.950: network provider request = ProviderRequest[@+5s0ms, WorkSource{10187 com.coloros.weather.service}]
+    10-03 19:59:37.999: network provider received location[1]
+    10-03 19:59:38.000: network provider delivered location[1] to 10187/com.coloros.weather.service/788C5829
+    10-03 19:59:38.001: network provider delivered location[1] to 1000/android[GnssService]/9C3FA9B0
+    10-03 19:59:38.008: network provider -registration 10187/com.coloros.weather.service/788C5829
+    10-03 19:59:38.009: network provider request = ProviderRequest[OFF]
+    10-03 19:59:38.340: passive provider +registration 10361/com.autonavi.minimap/7A221B9E -> Request[PASSIVE, minUpdateInterval=+1s0ms, WorkSource{10361 com.autonavi.minimap}]
+    10-03 19:59:38.340: passive provider client 10361/com.autonavi.minimap/7A221B9E -> permitted
+    10-03 19:59:38.345: passive provider client 10361/com.autonavi.minimap/7A221B9E -> foreground
+    10-03 19:59:38.384: gps provider +registration 10361/com.autonavi.minimap/EFDD7CF5 -> Request[@+1s0ms HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 19:59:38.385: gps provider client 10361/com.autonavi.minimap/EFDD7CF5 -> permitted
+    10-03 19:59:38.390: gps provider client 10361/com.autonavi.minimap/EFDD7CF5 -> foreground
+    10-03 19:59:38.390: gps provider request = ProviderRequest[@+1s0ms, HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 19:59:38.392: GPS Engine State: ON WorkSource Size: 1
+    10-03 19:59:38.394: gnss measurements +registration 10361/com.autonavi.minimap/A7140E7B -> GnssMeasurementRequest[@0]
+    10-03 19:59:38.394: GnssMeasurement +registration 10361/com.autonavi.minimap/A7140E7B -> GnssMeasurementRequest[@0]
+    10-03 19:59:38.402: passive provider +registration 1000/android[OplusLBS]/E5CFB31F -> Request[PASSIVE, minUpdateInterval=0, WorkSource{1000 android}]
+    10-03 19:59:38.402: passive provider client 1000/android[OplusLBS]/E5CFB31F -> permitted
+    10-03 19:59:38.408: passive provider client 1000/android[OplusLBS]/E5CFB31F -> foreground
+    10-03 19:59:40.037: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:41.033: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:42.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:43.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:44.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:45.030: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:46.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:47.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:48.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:49.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:50.052: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:51.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:52.052: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:53.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:54.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:55.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:56.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:57.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:58.052: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 19:59:59.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:00.043: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:01.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:02.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:03.038: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:04.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:05.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:06.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:07.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:08.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:09.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:10.031: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:11.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:12.038: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:13.038: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:14.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:15.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:16.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:17.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:18.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:19.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:20.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:21.027: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:22.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:23.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:24.028: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:25.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:26.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:27.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:28.037: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:29.028: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:29.908: passive provider client 10361/com.autonavi.minimap/7A221B9E -> background
+    10-03 20:00:29.908: gps provider client 10361/com.autonavi.minimap/EFDD7CF5 -> background
+    10-03 20:00:29.908: gps provider request = ProviderRequest[@+10m0s0ms, HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 20:00:32.770: GnssMeasurement -registration 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:32.770: gnss measurements -registration 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:00:32.771: gps provider -registration 10361/com.autonavi.minimap/EFDD7CF5
+    10-03 20:00:32.773: gps provider request = ProviderRequest[OFF]
+    10-03 20:00:32.774: GPS Engine State: OFF WorkSource Size: 0
+    10-03 20:00:32.776: passive provider -registration 1000/android[OplusLBS]/E5CFB31F
+    10-03 20:00:32.777: passive provider -registration 10361/com.autonavi.minimap/7A221B9E
+    10-03 20:00:38.271: App [:10361] is Freeze
+    10-03 20:02:07.446: network provider +registration 10157/com.coloros.assistantscreen/859186E3 -> Request[@0 BALANCED, duration=+30s0ms, WorkSource{10157 com.coloros.assistantscreen}]
+    10-03 20:02:07.446: network provider client 10157/com.coloros.assistantscreen/859186E3 -> permitted
+    10-03 20:02:07.457: network provider client 10157/com.coloros.assistantscreen/859186E3 -> foreground
+    10-03 20:02:07.480: network provider request = ProviderRequest[@0, WorkSource{10157 com.coloros.assistantscreen}]
+    10-03 20:02:07.926: passive provider +registration 10395/com.tencent.mm/9528C9D4 -> Request[PASSIVE, minUpdateInterval=+1s0ms, WorkSource{10395 com.tencent.mm}]
+    10-03 20:02:07.926: passive provider client 10395/com.tencent.mm/9528C9D4 -> permitted
+    10-03 20:02:07.946: passive provider client 10395/com.tencent.mm/9528C9D4 -> foreground
+    10-03 20:02:07.955: gps provider +registration 10395/com.tencent.mm/52A29620 -> Request[@+1s0ms HIGH_ACCURACY, WorkSource{10395 com.tencent.mm}]
+    10-03 20:02:07.955: gps provider client 10395/com.tencent.mm/52A29620 -> permitted
+    10-03 20:02:07.963: gps provider client 10395/com.tencent.mm/52A29620 -> foreground
+    10-03 20:02:07.963: gps provider request = ProviderRequest[@+1s0ms, HIGH_ACCURACY, WorkSource{10395 com.tencent.mm}]
+    10-03 20:02:07.967: GPS Engine State: ON WorkSource Size: 1
+    10-03 20:02:07.978: passive provider +registration 1000/android[OplusLBS]/E5CFB31F -> Request[PASSIVE, minUpdateInterval=0, WorkSource{1000 android}]
+    10-03 20:02:07.978: passive provider client 1000/android[OplusLBS]/E5CFB31F -> permitted
+    10-03 20:02:07.982: gnss measurements +registration 10395/com.tencent.mm/47F215D0 -> GnssMeasurementRequest[@0]
+    10-03 20:02:07.982: GnssMeasurement +registration 10395/com.tencent.mm/47F215D0 -> GnssMeasurementRequest[@0]
+    10-03 20:02:07.994: passive provider client 1000/android[OplusLBS]/E5CFB31F -> foreground
+    10-03 20:02:07.998: passive provider +registration 10395/com.tencent.mm/379E0CF9 -> Request[PASSIVE, minUpdateInterval=0, WorkSource{10395 com.tencent.mm}]
+    10-03 20:02:07.998: passive provider client 10395/com.tencent.mm/379E0CF9 -> permitted
+    10-03 20:02:08.000: passive provider client 10395/com.tencent.mm/379E0CF9 -> foreground
+    10-03 20:02:08.275: gps provider -registration 10395/com.tencent.mm/52A29620
+    10-03 20:02:08.276: gps provider request = ProviderRequest[OFF]
+    10-03 20:02:08.277: passive provider -registration 10395/com.tencent.mm/379E0CF9
+    10-03 20:02:08.278: GPS Engine State: OFF WorkSource Size: 0
+    10-03 20:02:08.279: GnssMeasurement -registration 10395/com.tencent.mm/47F215D0
+    10-03 20:02:08.279: gnss measurements -registration 10395/com.tencent.mm/47F215D0
+    10-03 20:02:08.282: passive provider -registration 1000/android[OplusLBS]/E5CFB31F
+    10-03 20:02:08.291: passive provider -registration 10395/com.tencent.mm/9528C9D4
+    10-03 20:02:10.133: network provider request = ProviderRequest[OFF]
+    10-03 20:02:10.133: network provider -registration 10157/com.coloros.assistantscreen/859186E3
+    10-03 20:02:10.133: network provider received location[1]
+    10-03 20:02:10.133: network provider delivered location[1] to 10157/com.coloros.assistantscreen/859186E3
+    10-03 20:02:10.134: network provider delivered location[1] to 1000/android[GnssService]/9C3FA9B0
+    10-03 20:03:07.421: App [:10361] is UnFreeze
+    10-03 20:03:07.421: gps provider +registration 10361/com.autonavi.minimap/0F5DD73A -> Request[@+1s0ms HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 20:03:07.421: gps provider client 10361/com.autonavi.minimap/0F5DD73A -> permitted
+    10-03 20:03:07.421: passive provider +registration 10361/com.autonavi.minimap/C2602491 -> Request[PASSIVE, minUpdateInterval=+1s0ms, WorkSource{10361 com.autonavi.minimap}]
+    10-03 20:03:07.421: passive provider client 10361/com.autonavi.minimap/C2602491 -> permitted
+    10-03 20:03:07.429: gps provider client 10361/com.autonavi.minimap/0F5DD73A -> foreground
+    10-03 20:03:07.430: gps provider request = ProviderRequest[@+1s0ms, HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 20:03:07.430: gnss measurements +registration 10361/com.autonavi.minimap/4D586ADF -> GnssMeasurementRequest[@0]
+    10-03 20:03:07.430: GPS Engine State: ON WorkSource Size: 1
+    10-03 20:03:07.432: gps provider -registration 10361/com.autonavi.minimap/0F5DD73A
+    10-03 20:03:07.435: passive provider client 10361/com.autonavi.minimap/C2602491 -> foreground
+    10-03 20:03:07.438: GnssMeasurement +registration 10361/com.autonavi.minimap/4D586ADF -> GnssMeasurementRequest[@0]
+    10-03 20:03:07.439: passive provider +registration 1000/android[OplusLBS]/E5CFB31F -> Request[PASSIVE, minUpdateInterval=0, WorkSource{1000 android}]
+    10-03 20:03:07.439: passive provider client 1000/android[OplusLBS]/E5CFB31F -> permitted
+    10-03 20:03:07.440: passive provider client 1000/android[OplusLBS]/E5CFB31F -> foreground
+    10-03 20:03:07.445: gps provider request = ProviderRequest[OFF]
+    10-03 20:03:07.445: GPS Engine State: OFF WorkSource Size: 0
+    10-03 20:03:07.449: passive provider -registration 1000/android[OplusLBS]/E5CFB31F
+    10-03 20:03:07.460: GnssMeasurement -registration 10361/com.autonavi.minimap/4D586ADF
+    10-03 20:03:07.460: gnss measurements -registration 10361/com.autonavi.minimap/4D586ADF
+    10-03 20:03:07.463: Unfreezeapp(gps:com.autonavi.minimap:10361) died.
+    10-03 20:03:07.538: gps provider +registration 10361/com.autonavi.minimap/E0C546C6 -> Request[@+1s0ms HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 20:03:07.538: gps provider client 10361/com.autonavi.minimap/E0C546C6 -> permitted
+    10-03 20:03:07.549: gps provider client 10361/com.autonavi.minimap/E0C546C6 -> foreground
+    10-03 20:03:07.550: gps provider request = ProviderRequest[@+1s0ms, HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 20:03:07.551: GPS Engine State: ON WorkSource Size: 1
+    10-03 20:03:07.553: gnss measurements +registration 10361/com.autonavi.minimap/A7140E7B -> GnssMeasurementRequest[@0]
+    10-03 20:03:07.554: GnssMeasurement +registration 10361/com.autonavi.minimap/A7140E7B -> GnssMeasurementRequest[@0]
+    10-03 20:03:07.554: passive provider +registration 1000/android[OplusLBS]/E5CFB31F -> Request[PASSIVE, minUpdateInterval=0, WorkSource{1000 android}]
+    10-03 20:03:07.554: passive provider client 1000/android[OplusLBS]/E5CFB31F -> permitted
+    10-03 20:03:07.555: passive provider client 1000/android[OplusLBS]/E5CFB31F -> foreground
+    10-03 20:03:09.028: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:10.036: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:11.027: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:12.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:13.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:14.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:15.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:16.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:17.025: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:18.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:19.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:20.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:21.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:22.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:23.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:24.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:25.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:26.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:27.054: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:28.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:29.035: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:30.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:31.053: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:32.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:33.037: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:34.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:35.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:36.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:37.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:38.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:39.059: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:40.031: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:41.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:42.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:43.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:44.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:45.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:46.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:47.055: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:48.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:49.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:50.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:51.052: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:52.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:53.053: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:54.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:55.054: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:56.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:57.055: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:58.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:03:59.052: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:00.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:01.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:02.035: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:03.056: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:04.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:05.052: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:06.026: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:07.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:08.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:09.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:10.053: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:11.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:12.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:13.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:14.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:15.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:16.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:17.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:18.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:19.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:20.050: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:21.050: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:22.059: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:04:22.669: passive provider -registration 1000/android[OplusLBS]/E5CFB31F
+    10-03 20:04:22.682: GPS Engine State: ON WorkSource Size: 1
+    10-03 20:05:09.844: passive provider -registration 10361/com.autonavi.minimap/C2602491
+    10-03 20:05:09.856: gps provider -registration 10361/com.autonavi.minimap/E0C546C6
+    10-03 20:05:09.857: gps provider request = ProviderRequest[OFF]
+    10-03 20:05:09.857: GnssMeasurement -registration 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:05:09.857: gnss measurements -registration 10361/com.autonavi.minimap/A7140E7B
+    10-03 20:05:10.868: passive provider +registration 10361/com.autonavi.minimap/5AD88FAD -> Request[PASSIVE, minUpdateInterval=+1s0ms, WorkSource{10361 com.autonavi.minimap}]
+    10-03 20:05:10.868: passive provider client 10361/com.autonavi.minimap/5AD88FAD -> permitted
+    10-03 20:05:10.871: passive provider client 10361/com.autonavi.minimap/5AD88FAD -> foreground
+    10-03 20:05:10.872: gps provider +registration 10361/com.autonavi.minimap/65CCB4F2 -> Request[@+1s0ms HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 20:05:10.872: gps provider client 10361/com.autonavi.minimap/65CCB4F2 -> permitted
+    10-03 20:05:10.874: gps provider client 10361/com.autonavi.minimap/65CCB4F2 -> foreground
+    10-03 20:05:10.874: gps provider request = ProviderRequest[@+1s0ms, HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 20:05:10.875: GPS Engine State: ON WorkSource Size: 1
+    10-03 20:05:10.875: gnss measurements +registration 10361/com.autonavi.minimap/CC6822DD -> GnssMeasurementRequest[@0]
+    10-03 20:05:10.875: GnssMeasurement +registration 10361/com.autonavi.minimap/CC6822DD -> GnssMeasurementRequest[@0]
+    10-03 20:05:10.879: passive provider +registration 1000/android[OplusLBS]/E5CFB31F -> Request[PASSIVE, minUpdateInterval=0, WorkSource{1000 android}]
+    10-03 20:05:10.879: passive provider client 1000/android[OplusLBS]/E5CFB31F -> permitted
+    10-03 20:05:10.881: passive provider client 1000/android[OplusLBS]/E5CFB31F -> foreground
+    10-03 20:05:10.916: gps provider -registration 10361/com.autonavi.minimap/65CCB4F2
+    10-03 20:05:10.918: gps provider request = ProviderRequest[OFF]
+    10-03 20:05:10.918: GPS Engine State: OFF WorkSource Size: 0
+    10-03 20:05:10.920: passive provider -registration 1000/android[OplusLBS]/E5CFB31F
+    10-03 20:05:10.920: gps provider +registration 10361/com.autonavi.minimap/86A69D05 -> Request[@+500ms HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 20:05:10.921: gps provider client 10361/com.autonavi.minimap/86A69D05 -> permitted
+    10-03 20:05:10.924: gps provider client 10361/com.autonavi.minimap/86A69D05 -> foreground
+    10-03 20:05:10.924: gps provider request = ProviderRequest[@+500ms, HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 20:05:10.925: GPS Engine State: ON WorkSource Size: 1
+    10-03 20:05:10.926: passive provider +registration 1000/android[OplusLBS]/E5CFB31F -> Request[PASSIVE, minUpdateInterval=0, WorkSource{1000 android}]
+    10-03 20:05:10.926: passive provider client 1000/android[OplusLBS]/E5CFB31F -> permitted
+    10-03 20:05:10.929: passive provider client 1000/android[OplusLBS]/E5CFB31F -> foreground
+    10-03 20:05:10.932: gps provider -registration 10361/com.autonavi.minimap/86A69D05
+    10-03 20:05:10.936: gps provider request = ProviderRequest[OFF]
+    10-03 20:05:10.937: GPS Engine State: OFF WorkSource Size: 0
+    10-03 20:05:10.938: gps provider +registration 10361/com.autonavi.minimap/9CD805BF -> Request[@+1s0ms HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 20:05:10.938: gps provider client 10361/com.autonavi.minimap/9CD805BF -> permitted
+    10-03 20:05:10.939: gps provider client 10361/com.autonavi.minimap/9CD805BF -> foreground
+    10-03 20:05:10.939: gps provider request = ProviderRequest[@+1s0ms, HIGH_ACCURACY, WorkSource{10361 com.autonavi.minimap}]
+    10-03 20:05:10.942: passive provider -registration 1000/android[OplusLBS]/E5CFB31F
+    10-03 20:05:10.942: GPS Engine State: ON WorkSource Size: 1
+    10-03 20:05:10.951: passive provider +registration 1000/android[OplusLBS]/E5CFB31F -> Request[PASSIVE, minUpdateInterval=0, WorkSource{1000 android}]
+    10-03 20:05:10.951: passive provider client 1000/android[OplusLBS]/E5CFB31F -> permitted
+    10-03 20:05:10.952: passive provider client 1000/android[OplusLBS]/E5CFB31F -> foreground
+    10-03 20:05:12.037: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:13.043: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:14.045: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:15.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:16.039: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:17.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:18.059: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:19.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:20.057: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:21.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:23.053: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:24.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:25.050: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:26.029: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:27.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:28.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:29.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:30.055: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:31.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:32.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:33.039: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:34.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:35.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:36.052: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:37.028: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:38.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:39.055: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:40.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:41.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:42.030: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:43.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:44.052: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:45.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:46.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:47.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:48.038: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:49.056: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:50.039: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:51.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:52.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:53.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:54.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:55.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:56.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:57.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:58.039: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:05:59.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:00.029: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:01.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:02.025: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:03.038: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:04.052: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:05.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:06.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:07.022: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:08.057: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:09.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:10.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:11.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:12.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:13.038: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:14.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:15.039: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:16.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:17.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:18.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:19.047: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:20.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:21.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:22.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:23.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:24.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:25.036: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:26.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:27.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:28.038: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:29.038: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:30.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:31.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:32.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:33.039: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:34.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:35.038: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:36.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:37.050: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:38.026: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:39.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:40.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:41.041: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:42.044: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:43.058: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:44.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:45.051: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:46.038: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:47.044: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:48.048: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:49.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:50.049: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:51.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:52.052: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:53.036: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:54.033: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:55.055: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:56.037: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:57.052: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:58.040: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:06:59.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:00.031: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:01.051: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:02.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:03.051: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:04.040: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:05.056: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:06.034: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:07.056: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:08.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:09.052: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:10.036: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:10.154: network provider +registration 1000/android[OplusLBS]/10ED14AC -> Request[@+1s0ms BALANCED, WorkSource{1000 android}]
+    10-03 20:07:10.154: network provider client 1000/android[OplusLBS]/10ED14AC -> permitted
+    10-03 20:07:10.161: network provider client 1000/android[OplusLBS]/10ED14AC -> foreground
+    10-03 20:07:10.171: network provider request = ProviderRequest[@+1s0ms, WorkSource{1000 android}]
+    10-03 20:07:10.228: network provider received location[1]
+    10-03 20:07:10.235: network provider delivered location[1] to 1000/android[GnssService]/9C3FA9B0
+    10-03 20:07:10.246: network provider delivered location[1] to 1000/android[OplusLBS]/10ED14AC
+    10-03 20:07:10.248: network provider -registration 1000/android[OplusLBS]/10ED14AC
+    10-03 20:07:10.249: network provider request = ProviderRequest[OFF]
+    10-03 20:07:11.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:12.039: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:13.037: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:14.028: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:15.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:16.033: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:17.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:18.048: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:19.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:20.037: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:21.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:22.044: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:23.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:24.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:25.038: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:26.036: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:27.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:28.048: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:29.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:30.037: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:31.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:32.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:33.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:34.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:35.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:36.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:37.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:38.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:39.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:40.037: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:41.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:42.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:43.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:44.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:45.037: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:46.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:47.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:48.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:49.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:50.029: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:51.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:52.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:53.046: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:54.038: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:55.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:56.036: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:57.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:58.049: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:07:59.027: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:00.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:01.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:02.048: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:03.040: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:04.053: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:05.037: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:06.045: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:07.043: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:08.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:09.041: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:10.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:11.038: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:12.054: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:13.041: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:14.050: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:15.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:16.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:17.038: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:18.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:19.039: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:20.056: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:21.036: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:22.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:23.054: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:24.035: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:25.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:26.037: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:27.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:28.056: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:29.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:30.046: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:31.028: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:32.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:33.040: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:34.047: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:35.057: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:36.039: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:37.048: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:38.046: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:39.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:40.048: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:41.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:42.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:43.053: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:44.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:45.054: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:46.038: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:47.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:48.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:49.047: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:50.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:51.045: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:52.053: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:53.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:54.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:55.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:56.043: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:57.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:58.032: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:08:59.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:00.057: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:01.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:02.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:03.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:04.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:05.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:06.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:07.056: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:08.040: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:09.055: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:10.041: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:11.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:12.052: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:13.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:14.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:15.044: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:16.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:17.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:18.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:19.043: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:20.037: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:21.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:22.031: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:23.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:24.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:25.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:26.042: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:27.070: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:28.032: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:29.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:30.041: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:31.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:32.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:33.043: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:34.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:35.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:36.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:37.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:38.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:39.052: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:40.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:41.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:42.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:43.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:44.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:45.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:46.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:47.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:48.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:49.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:50.055: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:51.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:52.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:53.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:54.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:55.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:56.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:57.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:58.039: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:09:59.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:00.033: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:01.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:02.028: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:03.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:04.047: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:05.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:06.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:07.054: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:08.035: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:09.029: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:10.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:11.027: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:12.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:13.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:14.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:15.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:16.032: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:17.052: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:18.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:19.051: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:20.028: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:21.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:22.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:23.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:24.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:25.045: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:26.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:27.048: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:28.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:29.052: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:30.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:31.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:32.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:33.040: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:34.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:35.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:36.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:37.053: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:38.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:39.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:40.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:41.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:42.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:43.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:44.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:45.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:46.026: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:47.048: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:48.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:49.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:50.041: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:51.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:52.047: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:53.037: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:54.042: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:55.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:56.036: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:57.046: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:58.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:10:59.041: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:00.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:01.029: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:02.045: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:03.038: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:04.051: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:05.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:06.044: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:07.028: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:08.050: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:09.034: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:10.056: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:11.032: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:12.043: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:13.028: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:14.042: gnss measurements delivered GnssMeasurements[0] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:15.049: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:16.030: gnss measurements delivered GnssMeasurements[1] to 10361/com.autonavi.minimap/CC6822DD
+    10-03 20:11:16.172: GPS Engine State: ON WorkSource Size: 1
+Geocoder Record:
+  10-03 19:45:43.373: com.oplus.metis start requesting RGC.
+  10-03 19:45:43.377: RGC succeed for com.oplus.metis
+  10-03 19:45:44.998: com.coloros.assistantscreen start requesting RGC.
+  10-03 19:45:45.001: com.oplus.nas start requesting RGC.
+  10-03 19:45:45.007: RGC succeed for com.oplus.nas
+  10-03 19:45:45.007: RGC succeed for com.coloros.assistantscreen
+  10-03 19:45:45.016: com.oplus.deepthinker start requesting RGC.
+  10-03 19:45:45.018: com.android.phone start requesting RGC.
+  10-03 19:45:45.030: RGC succeed for com.oplus.deepthinker
+  10-03 19:45:45.031: com.oplus.deepthinker start requesting RGC.
+  10-03 19:45:45.036: com.oplus.subsys start requesting RGC.
+  10-03 19:45:45.047: com.oplus.subsys start requesting RGC.
+  10-03 19:45:45.271: RGC succeed for com.android.phone
+  10-03 19:45:45.273: RGC succeed for com.oplus.deepthinker
+  10-03 19:45:45.275: RGC succeed for com.oplus.subsys
+  10-03 19:45:45.275: RGC succeed for com.oplus.subsys
+  10-03 19:45:46.354: com.oplus.metis start requesting RGC.
+  10-03 19:45:46.359: RGC succeed for com.oplus.metis
+  10-03 19:45:53.519: com.oplus.subsys start requesting RGC.
+  10-03 19:45:53.521: RGC succeed for com.oplus.subsys
+  10-03 19:45:53.522: com.oplus.subsys start requesting RGC.
+  10-03 19:45:53.524: RGC succeed for com.oplus.subsys
+  10-03 19:45:53.530: com.oplus.subsys start requesting RGC.
+  10-03 19:45:53.532: RGC succeed for com.oplus.subsys
+  10-03 19:45:53.533: com.oplus.subsys start requesting RGC.
+  10-03 19:45:53.535: RGC succeed for com.oplus.subsys
+  10-03 19:45:53.536: com.oplus.subsys start requesting RGC.
+  10-03 19:45:53.538: RGC succeed for com.oplus.subsys
+  10-03 19:45:53.544: com.oplus.subsys start requesting RGC.
+  10-03 19:45:53.547: RGC succeed for com.oplus.subsys
+  10-03 19:46:03.518: com.oplus.subsys start requesting RGC.
+  10-03 19:46:03.521: com.oplus.subsys start requesting RGC.
+  10-03 19:46:03.524: com.oplus.subsys start requesting RGC.
+  10-03 19:46:03.528: RGC succeed for com.oplus.subsys
+  10-03 19:46:03.528: com.oplus.subsys start requesting RGC.
+  10-03 19:46:03.532: RGC succeed for com.oplus.subsys
+  10-03 19:46:03.532: RGC succeed for com.oplus.subsys
+  10-03 19:46:03.532: com.oplus.subsys start requesting RGC.
+  10-03 19:46:03.532: RGC succeed for com.oplus.subsys
+  10-03 19:46:03.535: com.oplus.subsys start requesting RGC.
+  10-03 19:46:03.538: RGC succeed for com.oplus.subsys
+  10-03 19:46:03.540: RGC succeed for com.oplus.subsys
+  10-03 19:49:57.114: com.oplus.deepthinker start requesting RGC.
+  10-03 19:49:57.127: RGC succeed for com.oplus.deepthinker
+  10-03 19:50:35.305: com.oplus.subsys start requesting RGC.
+  10-03 19:50:35.315: RGC succeed for com.oplus.subsys
+  10-03 20:02:07.421: com.coloros.assistantscreen start requesting RGC.
+  10-03 20:02:07.466: RGC succeed for com.coloros.assistantscreen
+  10-03 20:02:10.137: com.coloros.assistantscreen start requesting RGC.
+  10-03 20:02:10.145: RGC succeed for com.coloros.assistantscreen
+Location related settings change history:
+  LOCATION_MODE:
+  WIFI_SCAN_ALWAYS_AVAILABLE:
+  ASSISTED_GPS_ENABLED:
+Oplus NLP ICU:
+   tx tuid: FA47C1C018C84AA38437D26FD35648ACd11c0d27e08e69a367471db4037f54fa
+   bd cuid: 7E38D65E74FFE11F98C24DE3DE95FD8E|0
+   gd adiu: @8_zFOJ6HHJFK66nVIer5h7dHHhOHK9YY
+
+Oplus Geofence Events:
+
+Trigger Records:
+
+Oplus ActivationLock Location:
+   DeviceProvisioned: true
+   ActivationLockOn: false
+   ActivationLockErrorCnt: 0
+   LastEnterActivationLockTime: 1970-01-01 08:00:00
+All Running App In Freeze:
+  index:0, info [com.autonavi.minimap: 10361: not freezed(gpsListener: 2, networkListener: 0, fusedListener: 0, measureListener: 3)]
+All App's listener In Freeze:
+   app listener info [{:10361=5}]
+Location Freeze Deep Sleep Disconnect Network State Change History:
+  null
+OplusHansManager updateLocationRequest History:
+  10-03 19:45:28.783: Registration: 1001/com.android.phone/6841238C, State: 1, Object: android.os.BinderProxy@8e5b258, Reason: addLocation
+  10-03 19:45:37.014: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.015: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.045: Uid: 10307, Pkg: com.oplus.melody, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.045: Uid: 10307, Pkg: com.oplus.melody, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.110: Uid: 10330, Pkg: com.nanocloud, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.110: Uid: 10330, Pkg: com.nanocloud, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.115: Registration: 1000/com.oplus.nas/8AD47030, State: 1, Object: android.os.BinderProxy@607e1b9, Reason: addLocation
+  10-03 19:45:37.161: Uid: 10375, Pkg: com.ai.assistance.operit, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.162: Uid: 10375, Pkg: com.ai.assistance.operit, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.215: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.215: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.217: Uid: 10400, Pkg: com.aliothmoon.maameow, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.262: Uid: 10400, Pkg: com.aliothmoon.maameow, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.267: Uid: 10416, Pkg: com.absinthe.libchecker, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.267: Uid: 10416, Pkg: com.absinthe.libchecker, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.298: Uid: 10417, Pkg: com.adilhanney.no_more_background, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.298: Uid: 10417, Pkg: com.adilhanney.no_more_background, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:36.365: Uid: 10422, Pkg: qu.cgtrwbupngx, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:36.366: Uid: 10423, Pkg: moe.shizuku.privileged.api, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:36.473: Uid: 10423, Pkg: moe.shizuku.privileged.api, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:36.486: Uid: 99910258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:36.965: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:37.860: Uid: 10307, Pkg: com.oplus.melody, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:38.474: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:39.038: Uid: 10307, Pkg: com.oplus.melody, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:39.347: Uid: 10422, Pkg: qu.cgtrwbupngx, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:39.890: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:39.921: Uid: 99910258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:41.415: Uid: 10151, Pkg: com.baidu.input_oppo, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:41.852: Uid: 10262, Pkg: com.android.vending, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:42.388: Uid: 10151, Pkg: com.baidu.input_oppo, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:42.442: Uid: 99910258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:42.853: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:42.855: Uid: 10262, Pkg: com.android.vending, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:43.659: Uid: 10394, Pkg: com.oplus.riderMode, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:43.861: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:43.912: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:43.972: Uid: 99910258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:44.661: Uid: 10394, Pkg: com.oplus.riderMode, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:44.862: Uid: 10262, Pkg: com.android.vending, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:44.867: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:45.017: Registration: 1001/com.android.phone/6841238C, State: 2, Object: android.os.BinderProxy@8e5b258, Reason: removeLocation
+  10-03 19:45:45.036: Registration: 1000/com.oplus.nas/8AD47030, State: 2, Object: android.os.BinderProxy@607e1b9, Reason: removeLocation
+  10-03 19:45:45.985: Uid: 99910258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:46.396: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:54.544: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:45:55.515: Registration: 10361/com.autonavi.minimap/0F5DD73A, State: 1, Object: android.os.BinderProxy@3229760, Reason: addLocation
+  10-03 19:45:55.521: Registration: 10361/com.autonavi.minimap/4D586ADF, State: 1, Object: android.os.BinderProxy@6dbecde, Reason: addMeasurement
+  10-03 19:46:01.289: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:08.061: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:09.072: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:09.556: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:16.048: Uid: 10422, Pkg: qu.cgtrwbupngx, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:17.052: Uid: 10422, Pkg: qu.cgtrwbupngx, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:31.150: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:37.400: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:37.807: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:40.417: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:43.608: Uid: 10422, Pkg: qu.cgtrwbupngx, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:44.097: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:44.613: Uid: 10422, Pkg: qu.cgtrwbupngx, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:47.914: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:49.304: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:52.877: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:46:58.769: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:47:02.613: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:47:07.069: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:47:31.667: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:47:51.132: Uid: 10375, Pkg: com.ai.assistance.operit, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:47:52.138: Uid: 10375, Pkg: com.ai.assistance.operit, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:47:55.942: Uid: 10375, Pkg: com.ai.assistance.operit, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:47:55.967: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:47:55.970: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:47:55.971: Uid: 10394, Pkg: com.oplus.riderMode, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:47:55.978: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:48:04.869: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:48:08.270: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:48:09.290: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:48:09.497: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:48:11.255: Uid: 99910258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:48:12.268: Uid: 99910258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:48:34.041: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:48:36.218: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:48:44.502: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:48:49.347: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:01.251: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:06.667: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:07.104: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:31.273: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:32.740: Uid: 10400, Pkg: com.aliothmoon.maameow, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:33.326: Uid: 10422, Pkg: qu.cgtrwbupngx, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:33.425: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:33.744: Uid: 10400, Pkg: com.aliothmoon.maameow, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:34.333: Uid: 10422, Pkg: qu.cgtrwbupngx, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:35.780: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:35.855: Uid: 10320, Pkg: com.coloros.note, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:36.450: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:36.869: Uid: 10320, Pkg: com.coloros.note, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:43.915: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:57.536: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:49:58.163: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:50:01.317: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:50:01.724: Uid: 10400, Pkg: com.aliothmoon.maameow, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:50:02.206: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:50:08.453: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:50:31.931: Uid: 10400, Pkg: com.aliothmoon.maameow, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:50:38.557: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:50:40.499: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:50:57.560: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:51:10.600: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:51:11.286: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:51:22.584: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:51:40.939: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:51:56.330: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:52:11.720: Uid: 10262, Pkg: com.android.vending, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:52:12.963: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:52:13.722: Uid: 10262, Pkg: com.android.vending, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:52:13.959: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:52:17.996: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:52:24.376: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:52:35.650: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:52:46.016: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:53:10.703: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:53:16.682: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:53:30.287: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:53:34.418: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:53:38.378: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:53:45.600: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:54:00.173: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:54:03.204: Uid: 99910258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:54:03.269: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:54:18.455: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:54:45.790: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:54:45.909: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:55:20.630: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:55:20.833: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:55:45.976: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:55:46.553: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:55:58.727: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:56:02.967: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:56:17.657: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:56:30.575: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:56:47.362: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:56:47.643: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:57:17.963: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:57:19.819: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:57:19.961: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:57:25.002: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:57:30.337: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:57:38.421: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:57:48.604: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:57:53.583: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:58:13.101: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:58:49.637: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:59:03.225: Uid: 99910258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:59:06.560: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:59:13.161: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:59:23.160: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:59:23.443: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:59:37.941: Registration: 10187/com.coloros.weather.service/788C5829, State: 1, Object: android.os.BinderProxy@3cc946b, Reason: addLocation
+  10-03 19:59:38.011: Registration: 10187/com.coloros.weather.service/788C5829, State: 2, Object: android.os.BinderProxy@3cc946b, Reason: removeLocation
+  10-03 19:59:38.389: Registration: 10361/com.autonavi.minimap/EFDD7CF5, State: 1, Object: android.os.BinderProxy@bbe3f0a, Reason: addLocation
+  10-03 19:59:38.392: Registration: 10361/com.autonavi.minimap/A7140E7B, State: 1, Object: android.os.BinderProxy@cbf4c8, Reason: addMeasurement
+  10-03 19:59:40.632: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:59:48.188: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 19:59:50.135: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:00:00.205: Uid: 10422, Pkg: qu.cgtrwbupngx, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:00:25.588: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:00:28.728: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:00:32.770: Registration: 10361/com.autonavi.minimap/A7140E7B, State: 2, Object: android.os.BinderProxy@cbf4c8, Reason: removeMeasurement
+  10-03 20:00:32.774: Registration: 10361/com.autonavi.minimap/EFDD7CF5, State: 2, Object: android.os.BinderProxy@bbe3f0a, Reason: removeLocation
+  10-03 20:00:36.768: Uid: 10361, Pkg: com.autonavi.minimap, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:00:37.011: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:00:38.271: Uid: 10361, Pkg: com.autonavi.minimap, Freeze: true, Result: = com.autonavi.minimap: 10361: freezed(gpsListener: 1, networkListener: 0, fusedListener: 0, measureListener: 1) 0
+  10-03 20:00:46.105: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:01:17.806: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:01:28.804: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:01:48.315: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:01:51.759: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:02:03.825: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:02:07.949: Registration: 10395/com.tencent.mm/52A29620, State: 1, Object: android.os.BinderProxy@24e02fb, Reason: addLocation
+  10-03 20:02:07.981: Registration: 10395/com.tencent.mm/47F215D0, State: 1, Object: android.os.BinderProxy@c21d2e2, Reason: addMeasurement
+  10-03 20:02:08.276: Registration: 10395/com.tencent.mm/52A29620, State: 2, Object: android.os.BinderProxy@24e02fb, Reason: removeLocation
+  10-03 20:02:08.279: Registration: 10395/com.tencent.mm/47F215D0, State: 2, Object: android.os.BinderProxy@c21d2e2, Reason: removeMeasurement
+  10-03 20:02:09.381: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:02:18.830: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:02:24.864: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:02:28.889: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:02:53.156: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:06.696: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:07.420: Uid: 10361, Pkg: com.autonavi.minimap, Freeze: false, Reason: FreezeControl f=false
+  10-03 20:03:07.459: Uid: 10361, Pkg: com.autonavi.minimap, Freeze: false, Result: = com.autonavi.minimap: 10361: not freezed(gpsListener: 1, networkListener: 0, fusedListener: 0, measureListener: 1) 0
+  10-03 20:03:07.538: Registration: 10361/com.autonavi.minimap/E0C546C6, State: 1, Object: android.os.BinderProxy@2eece18, Reason: addLocation
+  10-03 20:03:07.553: Registration: 10361/com.autonavi.minimap/A7140E7B, State: 1, Object: android.os.BinderProxy@d213173, Reason: addMeasurement
+  10-03 20:03:09.010: Uid: 10262, Pkg: com.android.vending, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:10.535: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:11.002: Uid: 10330, Pkg: com.nanocloud, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:11.012: Uid: 10262, Pkg: com.android.vending, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:11.728: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:13.008: Uid: 10330, Pkg: com.nanocloud, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:13.375: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:16.776: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:22.850: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:25.211: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:27.899: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:41.629: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:46.687: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:48.426: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:03:54.819: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:04:11.416: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:04:23.973: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:04:34.445: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:04:41.430: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:04:43.449: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:04:56.752: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:05:10.873: Registration: 10361/com.autonavi.minimap/65CCB4F2, State: 1, Object: android.os.BinderProxy@5e968a0, Reason: addLocation
+  10-03 20:05:10.874: Registration: 10361/com.autonavi.minimap/CC6822DD, State: 1, Object: android.os.BinderProxy@ec8401e, Reason: addMeasurement
+  10-03 20:05:10.918: Registration: 10361/com.autonavi.minimap/65CCB4F2, State: 2, Object: android.os.BinderProxy@5e968a0, Reason: removeLocation
+  10-03 20:05:10.920: Registration: 10361/com.autonavi.minimap/86A69D05, State: 1, Object: android.os.BinderProxy@ac4cbc4, Reason: addLocation
+  10-03 20:05:10.951: Registration: 10361/com.autonavi.minimap/86A69D05, State: 2, Object: android.os.BinderProxy@ac4cbc4, Reason: removeLocation
+  10-03 20:05:10.951: Registration: 10361/com.autonavi.minimap/9CD805BF, State: 1, Object: android.os.BinderProxy@cf41745, Reason: addLocation
+  10-03 20:05:11.425: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:05:13.342: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:05:18.367: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:05:30.700: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:05:56.142: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:06:11.316: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:06:28.578: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:06:53.088: Uid: 99910258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:07:02.072: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:07:13.636: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:07:34.647: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:07:36.272: Uid: 10422, Pkg: qu.cgtrwbupngx, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:07:38.278: Uid: 10422, Pkg: qu.cgtrwbupngx, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:07:40.890: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:08:04.040: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:08:07.261: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:08:14.498: Uid: 10422, Pkg: qu.cgtrwbupngx, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:08:15.358: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:08:36.503: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:08:37.178: Uid: 10395, Pkg: com.tencent.mm, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:08:39.649: Uid: 10422, Pkg: qu.cgtrwbupngx, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:08:59.988: Uid: 10422, Pkg: qu.cgtrwbupngx, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:09:00.043: Uid: 10258, Pkg: com.google.android.gsf, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:09:06.060: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:09:38.650: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:09:53.811: Uid: 10376, Pkg: com.huawei.smartaudio, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:10:08.743: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+  10-03 20:11:11.829: Uid: 10399, Pkg: com.tencent.mobileqq, Freeze: true, Reason: FreezeControl f=false
+Oplus Sleep Manager History:
+  10-03 19:45:15.627: DisLoc: 0, UserLoc: 1, ScreenOn: 1, DisNet: 0, RusCtrl: 1, Switch: -1, Phy: 0, Logic: 0, Desc: updateRus
+  10-03 19:45:15.628: DisLoc: 0, UserLoc: 1, ScreenOn: 1, DisNet: 0, RusCtrl: 1, Switch: -1, Phy: 0, Logic: 0, Desc: updateScreen
+Location Report Navigation Usage Scenario History:
+ null
+Platform Dump:
+  Izat Manager Dump Start
+    Xtra Enabled = unknown
+    IzatSdk Version = 12.0.1
+    Remote Target Service = com.qualcomm.location.izat.IzatService
+    Service Version = 12.0.0
+    ClientCallbackMap
+      mFlpRequestsMap: size = 0
+      mFlpPassiveCbMap: size = 0
+      mGeofenceClientCallbackMap: size = 0
+      mGeofencesMap: size = 0
+      mDebugReportClientCallbackMap: size = 1
+        key = com.qti.location.sdk.IZatManager$IZatDebugReportingServiceImpl@d6ba9dd, value = com.android.server.location.common.debugreport.QcomDebugReportManager$$ExternalSyntheticLambda0@24a2ba8
+  IZat Manager History:
+    10-03 19:45:35.265: connectTestService 
+    10-03 19:45:35.293: onServiceConnected, ComponentInfo{com.qualcomm.location/com.qualcomm.location.izat.IzatService}, android.os.BinderProxy@a86750d 
+    10-03 19:45:35.632: updateXtraThrottle, false 
+    10-03 19:45:36.643: disconnectTestService, com.qti.location.sdk.IZatManager$IZatTestServiceImpl@26e1655 
+    10-03 19:45:44.695: connectDebugReportingService 
+  Izat Manager Dump End
+  Izat Service Remote Dump Start
+    IzatService State:
+      Service_Version: 12.0.0
+      IZAT_SERVICE_NAME: com.qualcomm.location.izat.IzatService
+      isDeviceOEMUnlocked: false
+      Service Running: true
+      mShutdownHandler: com.qualcomm.location.izat.IzatService$IzatServiceShutdownHandler@cf4d3d3
+    DebugReportService State:
+      mDebugReportServiceIDLClient = com.qualcomm.location.izat.debugreport.DebugReportService$DebugReportServiceIDLClient@1d47d6e
+      ClientDebugReportData.getAllData
+        mPackageName: android.uid.phone:1001
+          mCallback: com.qti.debugreport.IDebugReportCallback$Stub$Proxy@347fd5d
+          mReportPeriodic: true
+        mPackageName: android.uid.system:1000
+          mCallback: com.qti.debugreport.IDebugReportCallback$Stub$Proxy@7c766d2
+          mReportPeriodic: true
+      mDebugReportCallbacks
+        callbacks: 2
+        killed: false
+        broadcasts count: -1
+      ClientXtraStatusData.getAllData
+      mXtraStatusCallbacks
+        callbacks: 0
+        killed: false
+        broadcasts count: -1
+    FlpServiceProvider State:
+      sXtraThrottle = false
+      mFlpIDLClient = com.qualcomm.location.izat.flp.FlpServiceProvider$FlpServiceProviderIDLClient@d552117
+      mIsLocationSettingsOn = true
+      mIsUserEmergency = false
+      FlpSessionRequestList size: 0
+      mCallbacksForBg
+        callbacks: 0
+        killed: false
+        broadcasts count: -1
+      mCallbacksForFg
+        callbacks: 0
+        killed: false
+        broadcasts count: -1
+      mCallbacksForPassive
+        callbacks: 0
+        killed: false
+        broadcasts count: -1
+      mCallbacksForStatus
+        callbacks: 0
+        killed: false
+        broadcasts count: -1
+      mLocationReportStats
+        0
+    GeofenceServiceProvider State:
+      GeofenceServiceProvider is NULL
+    GnssConfigService State:
+      GnssConfigService is NULL
+    GtpServiceProvider State:
+      GtpServiceProvider History:
+        null
+    PrecisePositionServiceProvider State:
+      PrecisePositionServiceProvider is NULL
+    QesdkTrackingServiceProvider State:
+      QesdkTrackingServiceProvider History:
+        10-03 19:45:21.411: QesdkTrackingServiceProvider Constructor, com.qualcomm.location.izat.IzatService@19e35e, com.qualcomm.location.policy.SessionPolicyManager@c9bb37 
+    
+    Izat Service Remote Dump End
+Location Power Saver History:
+  10-03 19:45:44.690: PS Start:{controllerMode: on, locationEnable: true, monitor: [status: still, env[in: 0, out:0], stationarySensorEnable: true, arStatusDuring(ms): 50191], usage list: [android]}
+  10-03 19:45:45.695: PS Ar:{monitor: lightMonitor, status: still, from sensor: stationarySensor}
+  10-03 19:45:45.695: PS Environment:{status: outdoor, inTimer(s): 0 outTimer(s): 2}
+  10-03 19:45:45.978: PS Stop:{controllerMode: off, locationEnable: true, monitor: [status: still, env[in: 0, out:2], stationarySensorEnable: true, arStatusDuring(ms): 284], usage list: []}
+  10-03 19:45:55.595: PS Start:{controllerMode: on, locationEnable: true, monitor: [status: still, env[in: 0, out:0], stationarySensorEnable: true, arStatusDuring(ms): 9901], usage list: [com.autonavi.minimap]}
+  10-03 19:45:58.600: PS Environment:{status: indoor, inTimer(s): 4 outTimer(s): 0}
+  10-03 19:46:00.523: PS Ar:{monitor: lightMonitor, status: still, from sensor: stationarySensor}
+  10-03 19:46:55.617: PS Status:{controllerMode: off, locationEnable: true, monitor: [status: still, env[in: 60, out:0], stationarySensorEnable: true, arStatusDuring(ms): 55093], usage list: [com.autonavi.minimap]}
+  10-03 19:57:09.157: PS Ar:{monitor: lightMonitor, status: moving, from sensor: motionDetect}
+  10-03 19:57:10.160: PS Ar:{monitor: lightMonitor, status: still, from sensor: stationarySensor}
+  10-03 19:57:10.161: PS Status:{controllerMode: on, locationEnable: true, monitor: [status: still, env[in: 0, out:0], stationarySensorEnable: true, arStatusDuring(ms): 1], usage list: [com.autonavi.minimap]}
+  10-03 19:57:14.171: PS Environment:{status: indoor, inTimer(s): 4 outTimer(s): 0}
+  10-03 19:57:20.180: PS Environment:{status: outdoor, inTimer(s): 0 outTimer(s): 2}
+  10-03 19:57:21.072: PS Ar:{monitor: lightMonitor, status: moving, from sensor: stationarySensor}
+  10-03 19:57:50.202: PS Environment:{status: indoor, inTimer(s): 4 outTimer(s): 0}
+  10-03 19:57:55.204: PS Ar:{monitor: lightMonitor, status: still, from sensor: stationarySensor}
+  10-03 19:58:50.319: PS Status:{controllerMode: off, locationEnable: true, monitor: [status: still, env[in: 63, out:0], stationarySensorEnable: true, arStatusDuring(ms): 55116], usage list: [com.autonavi.minimap]}
+  10-03 19:59:37.129: PS Stop:{controllerMode: off, locationEnable: true, monitor: [status: still, env[in: 63, out:0], stationarySensorEnable: true, arStatusDuring(ms): 101926], usage list: []}
+  10-03 19:59:38.413: PS Start:{controllerMode: on, locationEnable: true, monitor: [status: still, env[in: 0, out:0], stationarySensorEnable: true, arStatusDuring(ms): 103210], usage list: [com.autonavi.minimap]}
+  10-03 19:59:41.420: PS Environment:{status: indoor, inTimer(s): 4 outTimer(s): 0}
+  10-03 19:59:43.400: PS Ar:{monitor: lightMonitor, status: still, from sensor: stationarySensor}
+  10-03 20:00:32.774: PS Stop:{controllerMode: off, locationEnable: true, monitor: [status: still, env[in: 55, out:0], stationarySensorEnable: true, arStatusDuring(ms): 49373], usage list: []}
+  10-03 20:00:37.166: PS Ar:{monitor: lightMonitor, status: moving, from sensor: stationarySensor}
+  10-03 20:02:07.996: PS Ar:{monitor: lightMonitor, status: still, from sensor: stationarySensor}
+  10-03 20:02:07.996: PS Start:{controllerMode: on, locationEnable: true, monitor: [status: still, env[in: 0, out:0], stationarySensorEnable: true, arStatusDuring(ms): 1], usage list: [com.tencent.mm]}
+  10-03 20:02:08.277: PS Stop:{controllerMode: off, locationEnable: true, monitor: [status: still, env[in: 1, out:0], stationarySensorEnable: true, arStatusDuring(ms): 281], usage list: []}
+  10-03 20:02:08.284: PS Ar:{monitor: lightMonitor, status: still, from sensor: stationarySensor}
+  10-03 20:03:07.443: PS Start:{controllerMode: on, locationEnable: true, monitor: [status: still, env[in: 0, out:0], stationarySensorEnable: true, arStatusDuring(ms): 59160], usage list: [com.autonavi.minimap]}
+  10-03 20:03:07.445: PS Stop:{controllerMode: off, locationEnable: true, monitor: [status: still, env[in: 0, out:0], stationarySensorEnable: true, arStatusDuring(ms): 59161], usage list: []}
+  10-03 20:03:07.469: PS Ar:{monitor: lightMonitor, status: still, from sensor: stationarySensor}
+  10-03 20:03:07.557: PS Start:{controllerMode: on, locationEnable: true, monitor: [status: still, env[in: 0, out:0], stationarySensorEnable: true, arStatusDuring(ms): 88], usage list: [com.autonavi.minimap]}
+  10-03 20:03:10.569: PS Environment:{status: indoor, inTimer(s): 4 outTimer(s): 0}
+  10-03 20:03:12.459: PS Ar:{monitor: lightMonitor, status: still, from sensor: stationarySensor}
+  10-03 20:03:19.365: PS Ar:{monitor: lightMonitor, status: moving, from sensor: stationarySensor}
+  10-03 20:03:21.805: PS Ar:{monitor: lightMonitor, status: still, from sensor: stationarySensor}
+  10-03 20:03:22.585: PS Environment:{status: indoor, inTimer(s): 16 outTimer(s): 0}
+  10-03 20:04:22.678: PS Status:{controllerMode: off, locationEnable: true, monitor: [status: still, env[in: 75, out:0], stationarySensorEnable: true, arStatusDuring(ms): 60873], usage list: [com.autonavi.minimap]}
+  10-03 20:05:09.857: PS Stop:{controllerMode: off, locationEnable: true, monitor: [status: still, env[in: 75, out:0], stationarySensorEnable: true, arStatusDuring(ms): 108053], usage list: []}
+  10-03 20:05:10.883: PS Start:{controllerMode: on, locationEnable: true, monitor: [status: still, env[in: 0, out:0], stationarySensorEnable: true, arStatusDuring(ms): 109078], usage list: [com.autonavi.minimap]}
+  10-03 20:05:10.918: PS Stop:{controllerMode: off, locationEnable: true, monitor: [status: still, env[in: 1, out:0], stationarySensorEnable: true, arStatusDuring(ms): 109113], usage list: []}
+  10-03 20:05:10.925: PS Ar:{monitor: lightMonitor, status: still, from sensor: stationarySensor}
+  10-03 20:05:10.930: PS Start:{controllerMode: on, locationEnable: true, monitor: [status: still, env[in: 0, out:0], stationarySensorEnable: true, arStatusDuring(ms): 5], usage list: [com.autonavi.minimap]}
+  10-03 20:05:10.936: PS Stop:{controllerMode: off, locationEnable: true, monitor: [status: still, env[in: 0, out:0], stationarySensorEnable: true, arStatusDuring(ms): 12], usage list: []}
+  10-03 20:05:10.955: PS Ar:{monitor: lightMonitor, status: still, from sensor: stationarySensor}
+  10-03 20:05:10.955: PS Start:{controllerMode: on, locationEnable: true, monitor: [status: still, env[in: 0, out:0], stationarySensorEnable: true, arStatusDuring(ms): 1], usage list: [com.autonavi.minimap]}
+  10-03 20:05:10.956: PS Ar:{monitor: lightMonitor, status: still, from sensor: stationarySensor}
+  GeofenceHardware Manager:
+    Service: com.google.android.gms
+    Ids: []

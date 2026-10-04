@@ -1,0 +1,5 @@
+signature,file,startline,startcol,endline,endcol,properties
+Lcom/android/server/usage/FeatureFlags;->adjustDefaultBucketElevationParams()Z,out/soong/.intermediates/frameworks/base/apex/jobscheduler/service/aconfig/service-jobscheduler-appidle.flags-aconfig-java/android_common/javac/srcjars/com/android/server/usage/FeatureFlags.java,9,5,9,25,
+Lcom/android/server/usage/FeatureFlags;->avoidIdleCheck()Z,out/soong/.intermediates/frameworks/base/apex/jobscheduler/service/aconfig/service-jobscheduler-appidle.flags-aconfig-java/android_common/javac/srcjars/com/android/server/usage/FeatureFlags.java,13,5,13,25,
+Lcom/android/server/usage/FeatureFlags;->persistRestoreToRareAppsList()Z,out/soong/.intermediates/frameworks/base/apex/jobscheduler/service/aconfig/service-jobscheduler-appidle.flags-aconfig-java/android_common/javac/srcjars/com/android/server/usage/FeatureFlags.java,17,5,17,25,
+Lcom/android/server/usage/FeatureFlags;->screenTimeBypass()Z,out/soong/.intermediates/frameworks/base/apex/jobscheduler/service/aconfig/service-jobscheduler-appidle.flags-aconfig-java/android_common/javac/srcjars/com/android/server/usage/FeatureFlags.java,21,5,21,25,

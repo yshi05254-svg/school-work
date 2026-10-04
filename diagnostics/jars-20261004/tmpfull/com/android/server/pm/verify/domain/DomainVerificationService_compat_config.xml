@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><config><compat-change id="178111421" name="SETTINGS_API_V2"><meta-data definedIn="com.android.server.pm.verify.domain.DomainVerificationService" sourcePosition="frameworks/base/services/core/java/com/android/server/pm/verify/domain/DomainVerificationService.java:112"/></compat-change></config>

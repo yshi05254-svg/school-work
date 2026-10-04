@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><config><compat-change enableAfterTargetSdk="29" id="133396946" name="REMOVE_ANDROID_TEST_BASE"><meta-data definedIn="com.android.server.pm.parsing.library.AndroidTestBaseUpdater" sourcePosition="frameworks/base/services/core/java/com/android/server/pm/parsing/library/AndroidTestBaseUpdater.java:56"/></compat-change></config>

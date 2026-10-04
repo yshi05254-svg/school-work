@@ -1,0 +1,4 @@
+signature,file,startline,startcol,endline,endcol,properties
+Landroid/uprobestats/flags/FeatureFlagsImpl;->enableUprobestats()Z,out/soong/.intermediates/packages/modules/UprobeStats/src/uprobestats_flags_java_lib/android_common/javac/srcjars/android/uprobestats/flags/FeatureFlagsImpl.java,8,5,8,25,
+Landroid/uprobestats/flags/FeatureFlagsImpl;->executableMethodFileOffsets()Z,out/soong/.intermediates/packages/modules/UprobeStats/src/uprobestats_flags_java_lib/android_common/javac/srcjars/android/uprobestats/flags/FeatureFlagsImpl.java,15,5,15,25,
+Landroid/uprobestats/flags/FeatureFlagsImpl;->uprobestatsSupportUpdateDeviceIdleTempAllowlist()Z,out/soong/.intermediates/packages/modules/UprobeStats/src/uprobestats_flags_java_lib/android_common/javac/srcjars/android/uprobestats/flags/FeatureFlagsImpl.java,22,5,22,25,

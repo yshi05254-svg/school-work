@@ -1,5 +1,9 @@
 package com.example.menuui.ui.map
 
+import android.os.Build
+import android.view.View
+import android.view.ViewGroup
+import android.view.WindowManager
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +16,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -36,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,19 +49,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.amap.api.maps.AMap
-import com.amap.api.maps.AMapOptions
-import com.amap.api.maps.CameraUpdateFactory
-import com.amap.api.maps.TextureMapView
-import com.amap.api.maps.model.CameraPosition
-import com.amap.api.maps.model.LatLng
+import com.baidu.mapapi.map.BaiduMap
+import com.baidu.mapapi.map.BaiduMapOptions
+import com.baidu.mapapi.map.MapPoi
+import com.baidu.mapapi.map.MapStatus
+import com.baidu.mapapi.map.MapStatusUpdateFactory
+import com.baidu.mapapi.map.TextureMapView
+import com.baidu.mapapi.model.LatLng
 import com.example.menuui.geo.CoordTransform
 import com.example.menuui.geo.LatLon
 
@@ -78,16 +88,15 @@ fun MapPickerDialog(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    var agreed by remember { mutableStateOf(AmapPrivacy.isAgreed(context)) }
-    val hasKey = remember { AmapPrivacy.hasApiKey(context) }
+    var agreed by remember { mutableStateOf(BaiduMapSdk.isAgreed(context)) }
+    val hasKey = remember { BaiduMapSdk.hasApiKey(context) }
 
     Dialog(
         onDismissRequest = onDismiss,
-        // decorFitsSystemWindows=false：系统栏区域交给 Compose 的 WindowInsets 处理；
-        // 只靠窗口默认行为在 targetSdk 35 强制 edge-to-edge 下会被导航栏盖住
+        // decorFitsSystemWindows=false：系统栏区域交给 Compose 的 WindowInsets 处理
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
-        Surface(Modifier.fillMaxSize()) {
+        Surface(fitDialogWindow().fillMaxSize()) {
             Box(
                 Modifier
                     .fillMaxSize()
@@ -95,21 +104,21 @@ fun MapPickerDialog(
             ) {
                 when {
                     !hasKey -> NoticeScreen(
-                        title = "未配置高德 Key",
-                        body = "在 local.properties 中填写 AMAP_KEY=你的key 后重新编译。",
+                        title = "未配置百度地图 Key",
+                        body = "在 local.properties 中填写 BAIDU_MAP_KEY=你的AK 后重新编译。",
                         confirmText = null,
                         onConfirm = {},
                         onDismiss = onDismiss,
                     )
                     !agreed -> NoticeScreen(
                         title = "地图服务隐私说明",
-                        body = "地图选点使用高德地图 SDK，加载地图时 SDK 会收集设备标识、网络状态等信息" +
-                            "用于提供地图服务，详见《高德地图开放平台隐私权政策》" +
-                            "（https://lbs.amap.com/pages/privacy/）。\n\n" +
+                        body = "地图选点使用百度地图 SDK，加载地图时 SDK 会收集设备标识、网络状态等信息" +
+                            "用于提供地图服务，详见《百度地图开放平台隐私政策》" +
+                            "（https://lbsyun.baidu.com/index.php?title=openprivacy）。\n\n" +
                             "本页不读取你的真实位置。同意后才会加载地图。",
                         confirmText = "同意并继续",
                         onConfirm = {
-                            AmapPrivacy.agree(context)
+                            BaiduMapSdk.agree(context)
                             agreed = true
                         },
                         onDismiss = onDismiss,
@@ -118,6 +127,47 @@ fun MapPickerDialog(
                 }
             }
         }
+    }
+}
+
+/**
+ * 让对话框内容与窗口真实大小一致。Compose 的 Dialog（usePlatformDefaultWidth=false）
+ * 按 screenHeightDp 量内容高度，targetSdk 35 起它包含状态栏和导航栏；但不少 ROM
+ * 仍把对话框窗口夹在两条系统栏之间——内容比窗口高一截，底部面板被裁掉一半。
+ *
+ * 两手处理：先请求窗口铺满全屏（系统栏交给 safeDrawing 内缩）；再按窗口实际高度
+ * 给内容封顶，ROM 不放行时内容也不会溢出窗口。
+ */
+@Composable
+private fun fitDialogWindow(): Modifier {
+    val view = LocalView.current
+    val density = LocalDensity.current
+    var windowHeightPx by remember { mutableIntStateOf(0) }
+
+    DisposableEffect(view) {
+        (view.parent as? DialogWindowProvider)?.window?.let { window ->
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            window.attributes = window.attributes.apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) setFitInsetsTypes(0)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    layoutInDisplayCutoutMode =
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                }
+            }
+        }
+        val root = view.rootView
+        val listener = View.OnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            windowHeightPx = v.height
+        }
+        root.addOnLayoutChangeListener(listener)
+        windowHeightPx = root.height
+        onDispose { root.removeOnLayoutChangeListener(listener) }
+    }
+
+    return if (windowHeightPx > 0) {
+        Modifier.heightIn(max = with(density) { windowHeightPx.toDp() })
+    } else {
+        Modifier
     }
 }
 
@@ -137,31 +187,52 @@ private fun PickerContent(
     val centerWgs = CoordTransform.gcj02ToWgs84(centerGcj.lat, centerGcj.lon)
 
     val mapView = remember {
-        AmapPrivacy.applyToSdk(context)
-        val options = AMapOptions()
-            .camera(CameraPosition.fromLatLngZoom(LatLng(initialGcj.lat, initialGcj.lon), 16f))
+        BaiduMapSdk.ensureInitialized(context) // 坐标系设为 GCJ-02，下面进出都是 GCJ-02
+        val options = BaiduMapOptions()
+            .mapStatus(
+                MapStatus.Builder()
+                    .target(LatLng(initialGcj.lat, initialGcj.lon))
+                    .zoom(17f)
+                    .build(),
+            )
             .zoomControlsEnabled(false)
-            .tiltGesturesEnabled(false)
-            .scaleControlsEnabled(true)
+            .overlookingGesturesEnabled(false)
+            .rotateGesturesEnabled(false)
+            .compassEnabled(false)
+            .scaleControlEnabled(true)
         TextureMapView(context, options)
     }
 
-    // SDK 要求 onCreate 之后再 getMap
-    fun bindMap(map: AMap) {
-        map.setOnCameraChangeListener(object : AMap.OnCameraChangeListener {
-            override fun onCameraChange(p: CameraPosition) {
+    fun bindMap(map: BaiduMap) {
+        map.setOnMapStatusChangeListener(object : BaiduMap.OnMapStatusChangeListener {
+            override fun onMapStatusChangeStart(s: MapStatus) {
                 moving = true
-                centerGcj = LatLon(p.target.latitude, p.target.longitude)
             }
 
-            override fun onCameraChangeFinish(p: CameraPosition) {
+            override fun onMapStatusChangeStart(s: MapStatus, reason: Int) {
+                moving = true
+            }
+
+            override fun onMapStatusChange(s: MapStatus) {
+                moving = true
+                centerGcj = LatLon(s.target.latitude, s.target.longitude)
+            }
+
+            override fun onMapStatusChangeFinish(s: MapStatus) {
                 moving = false
-                centerGcj = LatLon(p.target.latitude, p.target.longitude)
+                centerGcj = LatLon(s.target.latitude, s.target.longitude)
             }
         })
-        map.setOnMapClickListener { latLng ->
-            map.animateCamera(CameraUpdateFactory.changeLatLng(latLng))
-        }
+        map.setOnMapClickListener(object : BaiduMap.OnMapClickListener {
+            override fun onMapClick(latLng: LatLng) {
+                map.animateMapStatus(MapStatusUpdateFactory.newLatLng(latLng))
+            }
+
+            // 点到地图上的 POI 名称时百度只回调这里，同样移过去
+            override fun onMapPoiClick(poi: MapPoi) {
+                map.animateMapStatus(MapStatusUpdateFactory.newLatLng(poi.position))
+            }
+        })
     }
 
     // MapView 生命周期桥接：addObserver 会补发到当前状态的事件（CREATE→RESUME）
@@ -169,7 +240,7 @@ private fun PickerContent(
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_CREATE -> {
-                    mapView.onCreate(null)
+                    mapView.onCreate(context, null)
                     bindMap(mapView.map)
                 }
                 Lifecycle.Event.ON_RESUME -> mapView.onResume()
@@ -192,8 +263,8 @@ private fun PickerContent(
                 moving = moving,
                 onBack = onDismiss,
                 onRecenter = {
-                    mapView.map.animateCamera(
-                        CameraUpdateFactory.changeLatLng(LatLng(initialGcj.lat, initialGcj.lon)),
+                    mapView.map.animateMapStatus(
+                        MapStatusUpdateFactory.newLatLng(LatLng(initialGcj.lat, initialGcj.lon)),
                     )
                 },
                 modifier = modifier,
@@ -286,7 +357,8 @@ private fun PickPanel(
     Surface(modifier, tonalElevation = 3.dp) {
         Column(
             Modifier
-                .padding(16.dp)
+                // 底部多留一些，按钮离屏幕下沿/导航栏远一点
+                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 28.dp)
                 .then(if (sideBySide) Modifier.fillMaxHeight() else Modifier),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {

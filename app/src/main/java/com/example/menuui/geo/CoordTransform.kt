@@ -13,7 +13,7 @@ data class LatLon(val lat: Double, val lon: Double)
  * WGS-84 ⇄ GCJ-02 坐标转换。
  *
  * 约定：配置里的 env.lat/lon 一律是 WGS-84（模块原样写进 android.location.Location，
- * 被 hook 的应用自己再转 GCJ-02）；高德地图 SDK 显示与回调都是 GCJ-02。
+ * 被 hook 的应用自己再转 GCJ-02）；地图选点把百度 SDK 坐标系设成 GCJ-02，显示与回调都是 GCJ-02。
  * 所以地图选点只在入口（WGS→GCJ 定位相机）和出口（GCJ→WGS 写回配置）各转一次。
  *
  * 境外判断用粗矩形（与高德/腾讯公开算法一致）：日本、美国等不偏移；

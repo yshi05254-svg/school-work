@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -27,6 +28,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,11 +39,13 @@ import com.example.menuui.config.ConfigBus
 import com.example.menuui.config.EnvDraft
 import com.example.menuui.config.Presets
 import com.example.menuui.config.WifiDraft
+import com.example.menuui.ui.map.MapPickerDialog
 
 /**
  * 位置页：内置预设 + 用户自建卡片单选载入（下方展示选中卡片的坐标/语言/时区/基站/WiFi/蓝牙/SIM）
  * + 当前环境全量编辑器（坐标/高度/精度/速度/朝向、基站、WiFi、蓝牙、语言/时区建议、GPS 抖动）。
  * 预设选中即发布（动态更新位置）；编辑器改动点"发布配置"生效；"新建卡片"把当前环境存为自建卡片。
+ * 坐标可经高德地图选点（只改坐标与名称，基站/WiFi/蓝牙保持原环境）。
  */
 @Composable
 fun LocationPage() {
@@ -49,6 +53,10 @@ fun LocationPage() {
     val cfg by ConfigBus.state.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<Presets.NamedPreset?>(null) }
+    val joystick by ConfigBus.joystick.collectAsState()
+    // 摇杆运行中禁止选点：服务停止时会把自己积分的位置写回 env，覆盖选点结果
+    val joystickActive = joystick?.active == true
+    var picking by rememberSaveable { mutableStateOf(false) }
 
     val publish: () -> Unit = {
         ConfigBus.publishAsync(record = true) { r ->
@@ -169,7 +177,13 @@ fun LocationPage() {
             title = "环境编辑器（当前生效：${cfg.env.name}）",
             subtitle = "覆盖模块位置域全部可伪造信息",
         ) {
-            Text("坐标", style = MaterialTheme.typography.labelLarge)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("坐标（WGS-84）", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                TextButton(onClick = { picking = true }, enabled = !joystickActive) {
+                    Icon(Icons.Filled.LocationOn, null)
+                    Text(if (joystickActive) " 摇杆运行中" else " 地图选点")
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DoubleField("纬度", cfg.env.lat, { v -> editEnv { it.copy(lat = v) } }, Modifier.weight(1f))
                 DoubleField("经度", cfg.env.lon, { v -> editEnv { it.copy(lon = v) } }, Modifier.weight(1f))
@@ -208,6 +222,26 @@ fun LocationPage() {
         SectionBluetooth(cfg)
 
         Button(onClick = publish, modifier = Modifier.fillMaxWidth()) { Text("发布配置") }
+    }
+
+    if (picking) {
+        MapPickerDialog(
+            initialLat = cfg.env.lat,
+            initialLon = cfg.env.lon,
+            onConfirm = { lat, lon ->
+                picking = false
+                editEnv { it.copy(name = MAP_PICK_NAME, lat = lat, lon = lon) }
+                val e = cfg.env
+                if (e.cells.isNotEmpty() || e.wifis.isNotEmpty() || e.btDevices.isNotEmpty()) {
+                    Toast.makeText(
+                        context,
+                        "坐标已更新；基站/WiFi/蓝牙仍是原环境的，跨城选点请在下方手动调整",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            },
+            onDismiss = { picking = false },
+        )
     }
 }
 
@@ -258,6 +292,7 @@ private fun PresetCard(
 }
 
 private const val CUSTOM_PREFIX = "custom_"
+private const val MAP_PICK_NAME = "地图选点"
 
 @Composable
 private fun AddPresetCard(modifier: Modifier = Modifier, onClick: () -> Unit) {

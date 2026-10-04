@@ -13,4 +13,36 @@ local.properties
 
 # 日志与设备抓取物（logcat、设备数据库、抓包、临时脚本）
 log/
-
+maa_diag/
+diagnostics/
+back_up_开发痕迹/
+diagnostics/
+.git/
+.hg/
+.svn/
+node_modules/
+bower_components/
+jspm_packages/
+__pycache__/
+site-packages/
+venv/
+coverage/
+htmlcov/
+lcov-report/
+cmakefiles/
+cmake-build-*/
+bazel-*/
+pods/
+deriveddata/
+storybook-static/
+playwright-report/
+test-results/
+allure-results/
+allure-report/
+cdk.out/
+*.egg-info/
+*.dist-info/
+eggs/
+pip-wheel-metadata/
+wheels/
+.zcodeignore

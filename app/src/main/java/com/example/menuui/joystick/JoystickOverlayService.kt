@@ -55,6 +55,9 @@ class JoystickOverlayService : Service() {
         val running: StateFlow<Boolean> = _running
 
         private const val CHANNEL_ID = "ven11_joystick"
+        private const val PREFS = "joystick_overlay"
+        private const val KEY_X = "x"
+        private const val KEY_Y = "y"
         private const val NOTIF_ID = 1101
     }
 
@@ -84,8 +87,29 @@ class JoystickOverlayService : Service() {
         override fun run() {
             if (!overlayAdded) return
             tick()
-            handler.postDelayed(this, TICK_MS)
+            handler.postDelayed(this, nextTickDelay())
         }
+    }
+
+    /**
+     * 摇杆松开且零速度已发布后，位置不再变化，只需按心跳续期：此时不再 100ms 空转，
+     * 直接睡到下次心跳；重新推动摇杆时 [wakeTick] 立即恢复 100ms 节拍。
+     */
+    private fun isIdle(): Boolean =
+        inputNx == 0f && inputNy == 0f && lastPublishedVn == 0.0 && lastPublishedVe == 0.0
+
+    private fun nextTickDelay(): Long {
+        if (!isIdle()) return TICK_MS
+        val untilHeartbeat = HEARTBEAT_MS - (SystemClock.elapsedRealtime() - lastPublishAt)
+        return untilHeartbeat.coerceAtLeast(TICK_MS)
+    }
+
+    /** 从空闲长睡中唤醒：积分起点重置为现在，避免把空闲时长当作移动时间 */
+    private fun wakeTick() {
+        if (!overlayAdded || !isIdle()) return
+        lastTickNs = System.nanoTime()
+        handler.removeCallbacks(tickRunnable)
+        handler.postDelayed(tickRunnable, TICK_MS)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -139,8 +163,13 @@ class JoystickOverlayService : Service() {
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 40
-            y = 240
+            // 恢复上次拖到的位置（首次用默认位置）
+            val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+            // 屏幕尺寸可能变了（换方向/分辨率），粗略夹回屏幕内
+            val dm = resources.displayMetrics
+            val keep = (48 * dm.density).toInt()
+            x = prefs.getInt(KEY_X, 40).coerceIn(0, (dm.widthPixels - keep).coerceAtLeast(0))
+            y = prefs.getInt(KEY_Y, 240).coerceIn(0, (dm.heightPixels - keep).coerceAtLeast(0))
         }
         wm.addView(root, lp)
         overlayRoot = root
@@ -163,7 +192,6 @@ class JoystickOverlayService : Service() {
             setTextColor(Color.WHITE)
             textSize = 12f
             setPadding(px(12), px(6), px(12), px(6))
-            setOnClickListener { }
         }
         val close = TextView(this).apply {
             text = "✕"
@@ -178,33 +206,16 @@ class JoystickOverlayService : Service() {
             addView(handle)
             addView(close)
         }
-        // 把手行触摸拖动窗口位置（raw 坐标差值）
-        handleRow.setOnTouchListener { v, ev ->
-            val lp = params ?: return@setOnTouchListener false
-            when (ev.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    v.tag = PointF(ev.rawX, ev.rawY)
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val start = v.tag as? PointF ?: return@setOnTouchListener false
-                    lp.x += (ev.rawX - start.x).toInt()
-                    lp.y += (ev.rawY - start.y).toInt()
-                    start.x = ev.rawX
-                    start.y = ev.rawY
-                    try {
-                        wm.updateViewLayout(overlayRoot, lp)
-                    } catch (_: Throwable) {
-                    }
-                    true
-                }
-                else -> false
-            }
-        }
+        // 把手拖动窗口。监听必须挂在 handle 上：ViewGroup 先把触摸派给子 View，
+        // 子 View 消费了 DOWN（此前 handle 挂了空点击监听），父行的监听就收不到 MOVE
+        val drag = DragListener()
+        handle.setOnTouchListener(drag)
+        handleRow.setOnTouchListener(drag) // 把手行的空白处也能拖
 
         val stick = JoystickView(this).apply {
             layoutParams = LinearLayout.LayoutParams(px(132), px(132))
             onMove = { nx, ny ->
+                if (nx != 0f || ny != 0f) wakeTick() // 先判空闲（用旧输入），再写新输入
                 inputNx = nx
                 inputNy = ny
             }
@@ -220,7 +231,79 @@ class JoystickOverlayService : Service() {
         }
     }
 
-    private class PointF(var x: Float, var y: Float)
+    /**
+     * 按按下时的窗口位置 + 手指总位移算目标位置（不累加增量，不会漂移）；
+     * MOVE 事件可达 120Hz，而 updateViewLayout 每次都是一次跨进程调用，
+     * 所以每帧最多提交一次。松手时把位置存下来，下次打开悬浮窗还在原处。
+     */
+    private inner class DragListener : View.OnTouchListener {
+        private var downRawX = 0f
+        private var downRawY = 0f
+        private var downX = 0
+        private var downY = 0
+        private var targetX = 0
+        private var targetY = 0
+        private var updatePosted = false
+
+        private val applyUpdate = Runnable {
+            updatePosted = false
+            val lp = params ?: return@Runnable
+            val root = overlayRoot ?: return@Runnable
+            if (lp.x == targetX && lp.y == targetY) return@Runnable
+            lp.x = targetX
+            lp.y = targetY
+            try {
+                wm.updateViewLayout(root, lp)
+            } catch (_: Throwable) {
+            }
+        }
+
+        override fun onTouch(v: View, ev: MotionEvent): Boolean {
+            val lp = params ?: return false
+            val root = overlayRoot ?: return false
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downRawX = ev.rawX
+                    downRawY = ev.rawY
+                    downX = lp.x
+                    downY = lp.y
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val (x, y) = clampToScreen(
+                        downX + (ev.rawX - downRawX).toInt(),
+                        downY + (ev.rawY - downRawY).toInt(),
+                        root,
+                    )
+                    targetX = x
+                    targetY = y
+                    if (!updatePosted) {
+                        updatePosted = true
+                        root.postOnAnimation(applyUpdate)
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (updatePosted) {
+                        root.removeCallbacks(applyUpdate)
+                        applyUpdate.run()
+                    }
+                    getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                        .putInt(KEY_X, lp.x).putInt(KEY_Y, lp.y).apply()
+                }
+                else -> return false
+            }
+            return true
+        }
+    }
+
+    /** 至少留把手的一截在屏幕内，避免拖出屏幕后找不回来 */
+    private fun clampToScreen(x: Int, y: Int, root: View): Pair<Int, Int> {
+        val dm = resources.displayMetrics
+        val keep = (48 * dm.density).toInt()
+        val maxX = (dm.widthPixels - keep).coerceAtLeast(0)
+        val minX = -(root.width - keep).coerceAtLeast(0)
+        val maxY = (dm.heightPixels - keep).coerceAtLeast(0)
+        return x.coerceIn(minX, maxX) to y.coerceIn(0, maxY)
+    }
 
     // ---------------------------------------------------------------- tick
 

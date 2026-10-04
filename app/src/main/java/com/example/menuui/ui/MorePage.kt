@@ -1,6 +1,5 @@
 package com.example.menuui.ui
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,7 +10,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -25,7 +23,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.menuui.config.ConfigBus
 import com.example.menuui.config.SimSlotDraft
@@ -36,7 +33,7 @@ import com.example.menuui.config.SimSlotDraft
  */
 @Composable
 fun MorePage() {
-    val context = LocalContext.current
+    val notifier = LocalNotifier.current
     val cfg by ConfigBus.state.collectAsState()
 
     Column(
@@ -82,19 +79,16 @@ fun MorePage() {
         }
 
         OutlinedButton(onClick = {
-            ConfigBus.update { com.example.menuui.config.ManagerConfig() }
-            Toast.makeText(context, "已恢复默认配置（未发布）", Toast.LENGTH_SHORT).show()
-        }, modifier = Modifier.fillMaxWidth()) { Text("恢复默认配置") }
-
-        Button(onClick = {
-            ConfigBus.publishAsync(record = true) { r ->
-                Toast.makeText(
-                    context,
-                    (if (r.ok) "发布成功（${r.via}）" else "发布失败：") + r.message,
-                    if (r.ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG,
-                ).show()
+            // 自建卡片与发布记录是用户数据，不随"恢复默认"清掉；整体可撤销
+            val before = ConfigBus.state.value
+            ConfigBus.update {
+                com.example.menuui.config.ManagerConfig(
+                    customPresets = before.customPresets,
+                    history = before.history,
+                )
             }
-        }, modifier = Modifier.fillMaxWidth()) { Text("发布配置") }
+            notifier.show("已恢复默认配置", "撤销") { ConfigBus.update { before } }
+        }, modifier = Modifier.fillMaxWidth()) { Text("恢复默认配置（保留自建卡片）") }
     }
 }
 
@@ -107,9 +101,13 @@ private fun SimSlotCard(index: Int, slot: SimSlotDraft) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("卡槽 ${index + 1}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                val notifier = LocalNotifier.current
                 IconButton(onClick = {
                     ConfigBus.update { c ->
                         c.copy(sim = c.sim.copy(slots = c.sim.slots.filterIndexed { idx, _ -> idx != index }))
+                    }
+                    notifier.show("已删除卡槽 ${index + 1}", "撤销") {
+                        ConfigBus.update { c -> c.copy(sim = c.sim.copy(slots = c.sim.slots.insertAt(index, slot))) }
                     }
                 }) { Icon(Icons.Filled.Close, "删除卡槽") }
             }

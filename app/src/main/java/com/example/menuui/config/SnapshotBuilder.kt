@@ -20,6 +20,8 @@ object SnapshotBuilder {
         val root = JSONObject()
         root.put("configVersion", System.currentTimeMillis())
         root.put("masterEnabled", cfg.masterEnabled)
+        // 方案B：模块侧 SnapshotParser optBoolean("serverLocation", true) 同名对应
+        root.put("serverLocation", cfg.serverLocation)
         root.put("excludedPackages", JSONArray(cfg.excludedPackages.distinct()))
         root.put("excludedUids", JSONArray(cfg.excludedUids.distinct()))
 

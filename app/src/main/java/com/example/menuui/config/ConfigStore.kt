@@ -37,6 +37,7 @@ object ConfigStore {
     private fun toJson(c: ManagerConfig): JSONObject {
         val o = JSONObject()
         o.put("masterEnabled", c.masterEnabled)
+        o.put("serverLocation", c.serverLocation)
         o.put("jitterEnabled", c.jitterEnabled)
         o.put("jitterAmplitudeMeters", c.jitterAmplitudeMeters)
         o.put("env", envJson(c.env))
@@ -54,25 +55,7 @@ object ConfigStore {
         )
         o.put("excludedPackages", JSONArray(c.excludedPackages))
         o.put("excludedUids", JSONArray(c.excludedUids))
-        o.put(
-            "sim",
-            JSONObject().put("enabled", c.sim.enabled)
-                .put(
-                    "slots",
-                    JSONArray().apply {
-                        c.sim.slots.forEach { s ->
-                            put(
-                                JSONObject().put("subId", s.subId).put("slotIndex", s.slotIndex)
-                                    .put("active", s.active).put("iccid", s.iccid)
-                                    .put("imsi", s.imsi).put("imeiBase", s.imeiBase)
-                                    .put("phoneNumber", s.phoneNumber).put("mcc", s.mcc)
-                                    .put("mnc", s.mnc).put("carrierName", s.carrierName)
-                                    .put("countryIso", s.countryIso),
-                            )
-                        }
-                    },
-                ),
-        )
+        o.put("sim", simJson(c.sim))
         o.put(
             "history",
             JSONArray().apply {
@@ -87,8 +70,38 @@ object ConfigStore {
         o.put("joystickSpeedMps", c.joystickSpeedMps)
         o.put("joystickPresetId", c.joystickPresetId)
         o.put("autoPublish", c.autoPublish)
+        o.put(
+            "customPresets",
+            JSONArray().apply {
+                c.customPresets.forEach { p ->
+                    put(
+                        JSONObject().put("id", p.id).put("label", p.label)
+                            .put("region", p.region)
+                            .put("env", envJson(p.env))
+                            .put("sim", simJson(p.sim)),
+                    )
+                }
+            },
+        )
         return o
     }
+
+    private fun simJson(sim: SimDraft): JSONObject = JSONObject().put("enabled", sim.enabled)
+        .put(
+            "slots",
+            JSONArray().apply {
+                sim.slots.forEach { s ->
+                    put(
+                        JSONObject().put("subId", s.subId).put("slotIndex", s.slotIndex)
+                            .put("active", s.active).put("iccid", s.iccid)
+                            .put("imsi", s.imsi).put("imeiBase", s.imeiBase)
+                            .put("phoneNumber", s.phoneNumber).put("mcc", s.mcc)
+                            .put("mnc", s.mnc).put("carrierName", s.carrierName)
+                            .put("countryIso", s.countryIso),
+                    )
+                }
+            },
+        )
 
     private fun envJson(e: EnvDraft): JSONObject {
         val o = JSONObject()
@@ -146,6 +159,7 @@ object ConfigStore {
 
     private fun parse(o: JSONObject): ManagerConfig = ManagerConfig(
         masterEnabled = o.optBoolean("masterEnabled", true),
+        serverLocation = o.optBoolean("serverLocation", true),
         jitterEnabled = o.optBoolean("jitterEnabled", true),
         jitterAmplitudeMeters = o.optDouble("jitterAmplitudeMeters", 8.0),
         env = o.optJSONObject("env")?.let(::parseEnv) ?: ManagerConfig().env,
@@ -166,6 +180,16 @@ object ConfigStore {
         joystickSpeedMps = o.optDouble("joystickSpeedMps", 1.4),
         joystickPresetId = o.optString("joystickPresetId", "walk"),
         autoPublish = o.optBoolean("autoPublish", true),
+        customPresets = o.optJSONArray("customPresets")?.mapObj { p ->
+            val env = p.optJSONObject("env")?.let(::parseEnv) ?: return@mapObj null
+            Presets.NamedPreset(
+                id = p.optString("id"),
+                label = p.optString("label", env.name),
+                region = p.optString("region"),
+                env = env,
+                sim = p.optJSONObject("sim")?.let(::parseSim) ?: SimDraft(),
+            )
+        }?.filterNotNull() ?: emptyList(),
     )
 
     private fun parseEnv(o: JSONObject): EnvDraft = EnvDraft(

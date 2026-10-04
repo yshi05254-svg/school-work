@@ -26,6 +26,15 @@ data class Snapshot(
     val policies: List<Policy>,
     val routes: Map<Long, Route>,
     val joystick: JoystickState = JoystickState(),
+    /**
+     * 方案B 开关：true（默认）= 定位坐标交付与 GNSS 抑制由 system_server 负责
+     * （system_server 直读 /data/system/ven11/snapshot.json，不依赖应用能否读到
+     * 模块 provider——微信等包可见性受限应用因此也能被伪装）；false = 服务端一律
+     * 透传，回退客户端交付类钩子（应急，免重装模块）。
+     * 默认 true：旧快照（无该字段）与读不到配置的客户端按"服务端负责"理解，
+     * 客户端交付钩在交付时透传，避免与服务端双重改写。
+     */
+    val serverLocation: Boolean = true,
 ) {
     companion object {
         val EMPTY = Snapshot(
@@ -151,6 +160,8 @@ object SnapshotParser {
                 .orEmpty(),
             // 坐标非法的摇杆段整体按未启用处理（回落实侧真实环境的安全侧）
             joystick = root.optJSONObject("joystick")?.let(::joystick) ?: JoystickState(),
+            // 缺字段（旧快照）按 true：服务端负责是默认语义（见 serverLocation 注释）
+            serverLocation = root.optBoolean("serverLocation", true),
         )
     } catch (_: Throwable) {
         null

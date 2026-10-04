@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 配置下发通道（审查八 #1）：读侧开放（被钩目标应用要读），写侧签名权限 -->
+    <!-- 配置下发通道（审查八 #1）：读侧按调用方放行（ConfigContentProvider.callerAllowed），
+         写侧签名权限 -->
     <permission
         android:name="dev.ven11.module.permission.CONFIG"
         android:protectionLevel="signature"
@@ -11,9 +12,11 @@
     <!-- 无 Activity：纯 libxposed 新 API 模块，入口由 META-INF/xposed/java_init.list 声明 -->
     <application
         android:allowBackup="false"
-        android:label="ven11 module">
+        android:label="ven11 module"
+        android:forceQueryable="true">
 
-        <!-- LSPosed 模块识别；93 = libxposed 新 API（API 100）所需最低框架版本 -->
+        <!-- LSPosed 模块识别（实测：删掉后 Vector 重扫会把模块置为禁用，必须保留）；
+             93 = libxposed 新 API（API 100）所需最低框架版本 -->
         <meta-data
             android:name="xposedmodule"
             android:value="true" />
@@ -31,10 +34,13 @@
             android:writePermission="dev.ven11.module.permission.CONFIG" />
 
         <!-- 空唤醒接收器：管理端探测/发布前显式广播拉起模块进程（见 WakeReceiver）。
-             ColorOS 限制后台自启时 provider 获取返回 Unknown URL，广播仍可拉起进程 -->
+             ColorOS 限制后台自启时 provider 获取返回 Unknown URL，广播仍可拉起进程。
+             组件权限设为签名权限：非同签名应用无法借此探测/拉起模块；
+             签名不同时 SnapshotPublisher 回落 su am broadcast（root 不受此权限限制） -->
         <receiver
             android:name="dev.ven11.module.publish.WakeReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:permission="dev.ven11.module.permission.CONFIG">
             <intent-filter>
                 <action android:name="dev.ven11.module.action.WAKE" />
             </intent-filter>

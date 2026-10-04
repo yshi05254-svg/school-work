@@ -3,7 +3,7 @@ package com.example.menuui.config
 /**
  * 固定 9 组位置预设（2 组国外 + 7 个不同中国省份/直辖市），单选载入环境与 SIM。
  * 每组之间 GPS / 基站（服务+邻区）/ WiFi×2 / 蓝牙（适配器+设备）/ SIM 完全不同，
- * 且符合当地运营商与使用形态的真实分布；国外组附真实语言与时区。
+ * 且符合当地运营商与使用形态的真实分布；每组附当地语言与时区（国内统一 zh-CN / Asia/Shanghai）。
  * 基站 ci/tac/pci/arfcn 与 iccid/imsi 为形态合理的虚构值（不冒用真实在网数据）。
  */
 object Presets {
@@ -67,6 +67,7 @@ object Presets {
                             wifi("CMCC-Edcu-5G", "02:1a:11:01:00:02", 2412, -63),
                         ),
                         btDevices = b.devices, btAdapterAddress = b.adapterMac, btAdapterName = b.adapterName,
+                        languageTag = "zh-CN", timezoneId = "Asia/Shanghai",
                     ),
                     sim("中国移动", "460", "00", "cn",
                         "89860081190250123456", "460003190250123", "13800138000"),
@@ -90,6 +91,7 @@ object Presets {
                             wifi("Bund-Visitor-5G", "02:1a:11:02:00:02", 5180, -65),
                         ),
                         btDevices = b.devices, btAdapterAddress = b.adapterMac, btAdapterName = b.adapterName,
+                        languageTag = "zh-CN", timezoneId = "Asia/Shanghai",
                     ),
                     sim("中国电信", "460", "01", "cn",
                         "89860320250345678901", "460012503456789", "13301330000"),
@@ -113,6 +115,7 @@ object Presets {
                             wifi("Canton-Fair-WiFi", "02:1a:11:03:00:02", 2412, -66),
                         ),
                         btDevices = b.devices, btAdapterAddress = b.adapterMac, btAdapterName = b.adapterName,
+                        languageTag = "zh-CN", timezoneId = "Asia/Shanghai",
                     ),
                     sim("中国联通", "460", "01", "cn",
                         "89860125200456789012", "460012004567890", "18601860000"),
@@ -136,6 +139,7 @@ object Presets {
                             wifi("Tianfu-Software-Park", "02:1a:11:04:00:02", 5180, -64),
                         ),
                         btDevices = b.devices, btAdapterAddress = b.adapterMac, btAdapterName = b.adapterName,
+                        languageTag = "zh-CN", timezoneId = "Asia/Shanghai",
                     ),
                     sim("中国移动", "460", "00", "cn",
                         "89860077200567890123", "460007205678901", "13901390000"),
@@ -159,6 +163,7 @@ object Presets {
                             wifi("BellTower-Guest", "02:1a:11:05:00:02", 2412, -68),
                         ),
                         btDevices = b.devices, btAdapterAddress = b.adapterMac, btAdapterName = b.adapterName,
+                        languageTag = "zh-CN", timezoneId = "Asia/Shanghai",
                     ),
                     sim("中国联通", "460", "01", "cn",
                         "89860129200678901234", "460012006789012", "15601560000"),
@@ -182,6 +187,7 @@ object Presets {
                             wifi("IceSnow-World-Free", "02:1a:11:06:00:02", 2412, -70),
                         ),
                         btDevices = b.devices, btAdapterAddress = b.adapterMac, btAdapterName = b.adapterName,
+                        languageTag = "zh-CN", timezoneId = "Asia/Shanghai",
                     ),
                     sim("中国移动", "460", "00", "cn",
                         "89860046200789012345", "460004207890123", "14701470000"),
@@ -205,6 +211,7 @@ object Presets {
                             wifi("Tianshan-Airport-5G", "02:1a:11:07:00:02", 5180, -69),
                         ),
                         btDevices = b.devices, btAdapterAddress = b.adapterMac, btAdapterName = b.adapterName,
+                        languageTag = "zh-CN", timezoneId = "Asia/Shanghai",
                     ),
                     sim("中国移动", "460", "00", "cn",
                         "89860065200890123456", "460006208901234", "13501350000"),

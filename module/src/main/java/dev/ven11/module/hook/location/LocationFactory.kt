@@ -190,10 +190,24 @@ object LocationFactory {
     const val UNKNOWN_BOOT = -1
 
     /**
+     * 服务端注入的启动标识（方案B）：system_server 没有 Application，
+     * [appContentResolver] 取不到 ContentResolver，路线模式会永远拿不到 boot。
+     * ServerLocationHooks 在安装后用后台线程读一次 BOOT_COUNT 注入到这里；
+     * 定位回调路径只读这个缓存，绝不在回调里查系统设置（约束 2：不阻塞）。
+     */
+    @Volatile private var bootIdentityOverride: Int = UNKNOWN_BOOT
+
+    /** 注入启动标识；[UNKNOWN_BOOT]（未知）不覆盖已有值 */
+    fun setBootIdentity(value: Int) {
+        if (value != UNKNOWN_BOOT) bootIdentityOverride = value
+    }
+
+    /**
      * 取不到（Application 尚未创建 / 异常）返回 [UNKNOWN_BOOT] 且不缓存、不留 0——
      * 0 是合法 BOOT_COUNT 值，若用它建锚，之后真实值 N 会被误判为"跨重启"重置路线（评审二）。
      */
     private fun bootIdentityNow(): Int {
+        bootIdentityOverride.let { if (it != UNKNOWN_BOOT) return it }
         val cached = bootIdentity
         if (cached != UNKNOWN_BOOT) return cached
         val cr = appContentResolver() ?: return UNKNOWN_BOOT

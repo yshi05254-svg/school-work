@@ -9,7 +9,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- 高德地图选点：加载瓦片与鉴权。不申请定位权限——选点不需要真实位置 -->
+    <!-- 百度地图选点：加载瓦片与鉴权。不申请定位权限——选点不需要真实位置 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -25,10 +25,10 @@
         android:allowBackup="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
-        <!-- 高德 Key：值来自 local.properties 的 AMAP_KEY（见 app/build.gradle.kts） -->
+        <!-- 百度地图 AK：值来自 local.properties 的 BAIDU_MAP_KEY（见 app/build.gradle.kts） -->
         <meta-data
-            android:name="com.amap.api.v2.apikey"
-            android:value="${AMAP_KEY}" />
+            android:name="com.baidu.lbsapi.API_KEY"
+            android:value="${BAIDU_MAP_KEY}" />
 
         <activity
             android:name=".MainActivity"

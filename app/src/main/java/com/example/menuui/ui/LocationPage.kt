@@ -45,7 +45,8 @@ import com.example.menuui.ui.map.MapPickerDialog
  * 位置页，按使用顺序自上而下：
  *  1. 当前位置卡：现在生效的是什么 + 两个主操作（地图选点 / 存为卡片）；
  *  2. 位置卡片：内置预设 + 自建卡片，点击即切换并生效，切错可在提示条里撤销；
- *  3. 高级编辑：坐标、语言时区、抖动、基站、WiFi、蓝牙分组折叠（次要分组默认收起）。
+ *  3. 高级编辑：坐标、语言时区、抖动、基站、WiFi、蓝牙、SIM 分组折叠（次要分组默认收起）。
+ * 新建卡片保存的是当前环境 + 当前 SIM，所以自建卡片的 SIM 在"SIM 卡"分组里先改好再保存。
  * 改动随自动发布生效，发布状态见顶栏；删除类操作直接执行并提供撤销，不弹确认框。
  */
 @Composable
@@ -196,25 +197,37 @@ fun LocationPage() {
         SectionWifiList(cfg)
 
         SectionBluetooth(cfg)
+
+        SectionCard(
+            title = "SIM 卡",
+            subtitle = simSummary(cfg.sim),
+            collapsible = true,
+            initiallyExpanded = false,
+        ) {
+            SimEditor(cfg.sim) { t -> ConfigBus.update { c -> c.copy(sim = t(c.sim)) } }
+        }
     }
 
     if (showAddDialog) {
         AddPresetDialog(
             envName = cfg.env.name,
+            sim = cfg.sim,
             takenNames = allPresets.flatMap { listOf(it.label, it.env.name) }.toSet(),
             onDismiss = { showAddDialog = false },
-            onConfirm = { label, region ->
+            onConfirm = { label, region, includeSim ->
                 showAddDialog = false
                 ConfigBus.update { c ->
                     val env = c.env.copy(name = label)
+                    // 不带 SIM = 卡片的 SIM 保持真实；同时让当前环境与卡片一致（否则卡片立刻显示"已修改"）
+                    val sim = if (includeSim) c.sim else SimDraft()
                     val preset = Presets.NamedPreset(
                         id = CUSTOM_PREFIX + System.currentTimeMillis(),
                         label = label,
                         region = region.ifBlank { "自建" },
                         env = env,
-                        sim = c.sim,
+                        sim = sim,
                     )
-                    c.copy(env = env, customPresets = c.customPresets + preset)
+                    c.copy(env = env, sim = sim, customPresets = c.customPresets + preset)
                 }
                 notifier.show("已新建卡片「$label」")
             },
@@ -401,12 +414,15 @@ private fun AddPresetCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
 @Composable
 private fun AddPresetDialog(
     envName: String,
+    sim: SimDraft,
     takenNames: Set<String>,
     onDismiss: () -> Unit,
-    onConfirm: (label: String, region: String) -> Unit,
+    onConfirm: (label: String, region: String, includeSim: Boolean) -> Unit,
 ) {
     var label by remember { mutableStateOf("") }
     var region by remember { mutableStateOf("") }
+    val simOn = sim.enabled && sim.slots.isNotEmpty()
+    var includeSim by remember { mutableStateOf(true) }
     val trimmed = label.trim()
     val error = when {
         trimmed.isEmpty() -> null
@@ -419,8 +435,8 @@ private fun AddPresetDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "将当前环境（$envName）的坐标、语言、时区、基站、WiFi、蓝牙与 SIM 保存为新卡片。" +
-                        "可先在下方编辑器改好再新建。",
+                    "将当前环境（$envName）的坐标、语言、时区、基站、WiFi、蓝牙保存为新卡片。" +
+                        "可先在\"高级编辑\"里改好再新建。",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 StrField("卡片名称", label, { label = it })
@@ -428,11 +444,25 @@ private fun AddPresetDialog(
                     Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
                 StrField("备注（如 华东 · 电信）", region, { region = it })
+                if (simOn) {
+                    SwitchRow(
+                        title = "同时保存 SIM",
+                        subtitle = if (includeSim) simSummary(sim) else "不保存：该卡片的 SIM 保持真实",
+                        checked = includeSim,
+                        onChange = { includeSim = it },
+                    )
+                } else {
+                    Text(
+                        "SIM：保持真实。要自定义 SIM，先在\"高级编辑 → SIM 卡\"里开启并填写。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(trimmed, region.trim()) },
+                onClick = { onConfirm(trimmed, region.trim(), simOn && includeSim) },
                 enabled = trimmed.isNotEmpty() && error == null,
             ) { Text("保存") }
         },

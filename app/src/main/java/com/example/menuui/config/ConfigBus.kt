@@ -7,6 +7,7 @@ import com.example.menuui.publish.Probe
 import com.example.menuui.publish.SnapshotPublisher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import java.util.concurrent.Executors
 
 /** 摇杆实时状态（服务积分推算的结果快照，供 UI 展示与快照 joystick 段构建） */
@@ -26,6 +27,18 @@ data class JoystickLive(
 data class PublishOutcome(val ok: Boolean, val via: String, val message: String, val at: Long) {
     fun toRecord(): PublishRecord = PublishRecord(at, ok, via, message)
 }
+
+/**
+ * 发布状态（顶栏常驻展示）：
+ *  - pending：有改动尚未成功发布到模块；
+ *  - publishing：UI 手动发布进行中（服务节拍发布不置位，避免顶栏闪烁）；
+ *  - last：最近一次发布结果（含自动发布与服务节拍），失败在顶栏可见而非静默。
+ */
+data class PublishStatus(
+    val pending: Boolean = false,
+    val publishing: Boolean = false,
+    val last: PublishOutcome? = null,
+)
 
 /**
  * 进程单例配置总线：UI（Activity 存活期）与摇杆前台服务（Activity 销毁后仍运行）
@@ -49,6 +62,12 @@ object ConfigBus {
     private val _joystick = MutableStateFlow<JoystickLive?>(null)
     val joystick: StateFlow<JoystickLive?> = _joystick
 
+    private val _status = MutableStateFlow(PublishStatus())
+    val status: StateFlow<PublishStatus> = _status
+
+    /** 配置版本：每次 update 自增；发布成功时版本未变才清除 pending */
+    @Volatile private var version = 0L
+
     fun init(context: Context) {
         synchronized(lock) {
             if (initialized) return
@@ -60,7 +79,11 @@ object ConfigBus {
 
     /** 配置变更：内存即时生效 + 防抖落盘 + （autoPublish 开启时）防抖自动发布 */
     fun update(transform: (ManagerConfig) -> ManagerConfig) {
-        synchronized(lock) { _state.value = transform(_state.value) }
+        synchronized(lock) {
+            _state.value = transform(_state.value)
+            version++
+        }
+        _status.update { it.copy(pending = true) }
         scheduleSave()
         scheduleAutoPublish()
     }
@@ -77,19 +100,31 @@ object ConfigBus {
     fun publishNow(record: Boolean): PublishOutcome {
         val ctx = appContext
             ?: return PublishOutcome(false, "none", "配置总线未初始化", System.currentTimeMillis())
+        val publishedVersion = version
         val json = SnapshotBuilder.build(_state.value, joystickSection())
         val r = SnapshotPublisher.publish(ctx, json)
         val outcome = PublishOutcome(r.ok, r.via, r.message, System.currentTimeMillis())
+        _status.update { s ->
+            s.copy(pending = if (r.ok) version != publishedVersion else s.pending, last = outcome)
+        }
         if (record) {
-            update { it.copy(history = (listOf(outcome.toRecord()) + it.history).take(20)) }
+            // 发布记录不是配置改动：不标 pending、不触发自动发布，只落盘
+            synchronized(lock) {
+                _state.value = _state.value.let { it.copy(history = (listOf(outcome.toRecord()) + it.history).take(20)) }
+            }
+            scheduleSave()
         }
         return outcome
     }
 
     fun publishAsync(record: Boolean, onDone: (PublishOutcome) -> Unit = {}) {
+        if (record) _status.update { it.copy(publishing = true) }
         io.execute {
             val outcome = publishNow(record)
-            handler.post { onDone(outcome) }
+            handler.post {
+                if (record) _status.update { it.copy(publishing = false) }
+                onDone(outcome)
+            }
         }
     }
 

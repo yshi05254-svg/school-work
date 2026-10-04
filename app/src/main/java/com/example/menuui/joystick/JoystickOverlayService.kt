@@ -84,8 +84,29 @@ class JoystickOverlayService : Service() {
         override fun run() {
             if (!overlayAdded) return
             tick()
-            handler.postDelayed(this, TICK_MS)
+            handler.postDelayed(this, nextTickDelay())
         }
+    }
+
+    /**
+     * 摇杆松开且零速度已发布后，位置不再变化，只需按心跳续期：此时不再 100ms 空转，
+     * 直接睡到下次心跳；重新推动摇杆时 [wakeTick] 立即恢复 100ms 节拍。
+     */
+    private fun isIdle(): Boolean =
+        inputNx == 0f && inputNy == 0f && lastPublishedVn == 0.0 && lastPublishedVe == 0.0
+
+    private fun nextTickDelay(): Long {
+        if (!isIdle()) return TICK_MS
+        val untilHeartbeat = HEARTBEAT_MS - (SystemClock.elapsedRealtime() - lastPublishAt)
+        return untilHeartbeat.coerceAtLeast(TICK_MS)
+    }
+
+    /** 从空闲长睡中唤醒：积分起点重置为现在，避免把空闲时长当作移动时间 */
+    private fun wakeTick() {
+        if (!overlayAdded || !isIdle()) return
+        lastTickNs = System.nanoTime()
+        handler.removeCallbacks(tickRunnable)
+        handler.postDelayed(tickRunnable, TICK_MS)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -205,6 +226,7 @@ class JoystickOverlayService : Service() {
         val stick = JoystickView(this).apply {
             layoutParams = LinearLayout.LayoutParams(px(132), px(132))
             onMove = { nx, ny ->
+                if (nx != 0f || ny != 0f) wakeTick() // 先判空闲（用旧输入），再写新输入
                 inputNx = nx
                 inputNy = ny
             }

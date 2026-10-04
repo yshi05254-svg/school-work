@@ -1,5 +1,9 @@
 package dev.ven11.module.hook.regional
 
+import android.app.Activity
+import android.app.ActivityManager
+import android.app.Application
+import android.os.Bundle
 import android.os.Process
 import android.system.Os
 import android.util.Log
@@ -78,6 +82,13 @@ class ClientTimezoneHooks(private val module: XposedModule) {
         private const val POLL_INTERVAL_MS = 1_000L
 
         /**
+         * 进程在后台（无前台 Activity）时的轮询间隔。后台每秒一次 provider 查询
+         * 纯耗电，还会反复唤醒模块进程；回到前台时 onActivityResumed 立即刷新，
+         * 用户可见的界面不受影响。
+         */
+        private const val BACKGROUND_POLL_INTERVAL_MS = 10_000L
+
+        /**
          * Olson ID 全集（进程内静态数据，装钩时取一次缓存）。此前每次刷新都调
          * TimeZone.getAvailableIDs()：分配 ~600 个字符串再线性查找，纯浪费。
          */
@@ -107,6 +118,9 @@ class ClientTimezoneHooks(private val module: XposedModule) {
 
     private val pollerStarted = java.util.concurrent.atomic.AtomicBoolean(false)
 
+    /** 已恢复（resumed）的 Activity 数；-1 = 尚未注册生命周期回调（前后台未知，按前台处理） */
+    private val resumedActivities = java.util.concurrent.atomic.AtomicInteger(-1)
+
     fun install(cl: ClassLoader, pkg: String): Int {
         ownerPkg = pkg
         ownerUid = Process.myUid()
@@ -120,8 +134,8 @@ class ClientTimezoneHooks(private val module: XposedModule) {
         //    a. 快照版本变化回调——有其他域钩子活动（定位/WiFi/SP 查询等）的进程
         //       由轮询触发，延迟 ≤1s；
         //    b. 自驱轮询线程——应用长时间不触发任何被钩方法时也能感知策略变更/
-        //       关闭（否则静止进程会永久停留在旧伪装值）。内部经 SnapshotStore 的
-        //       1s 节流，文件读取至多 1 次/秒，开销可忽略。
+        //       关闭（否则静止进程会永久停留在旧伪装值）。前台 1s、后台 10s，
+        //       回到前台时立即刷新一次。
         SnapshotStore.registerListener("timezone") { _, _ -> refreshFromSnapshot() }
         startPoller()
 
@@ -147,8 +161,14 @@ class ClientTimezoneHooks(private val module: XposedModule) {
         if (pollerStarted.compareAndSet(false, true)) {
             Thread({
                 while (true) {
+                    if (resumedActivities.get() < 0) tryTrackForeground()
+                    val interval = if (resumedActivities.get() == 0) {
+                        BACKGROUND_POLL_INTERVAL_MS
+                    } else {
+                        POLL_INTERVAL_MS
+                    }
                     try {
-                        Thread.sleep(POLL_INTERVAL_MS)
+                        Thread.sleep(interval)
                     } catch (_: InterruptedException) {
                         // 进程退出场景，静默结束
                         return@Thread
@@ -161,6 +181,41 @@ class ClientTimezoneHooks(private val module: XposedModule) {
                 start()
             }
         }
+    }
+
+    /**
+     * 注册 Activity 生命周期回调以区分前后台。装钩时 Application 往往还没创建，
+     * 所以由轮询线程反复尝试，拿到后只注册一次。
+     */
+    private fun tryTrackForeground() {
+        val app = runCatching {
+            Class.forName("android.app.ActivityThread")
+                .getMethod("currentApplication").invoke(null) as? Application
+        }.getOrNull() ?: return
+        // 注册前已在前台的 Activity 收不到 onResumed，用一次进程重要性查询补上初值
+        val alreadyForeground = runCatching {
+            ActivityManager.RunningAppProcessInfo().also { ActivityManager.getMyMemoryState(it) }
+                .importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+        }.getOrDefault(true)
+        if (!resumedActivities.compareAndSet(-1, if (alreadyForeground) 1 else 0)) return
+        app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
+            override fun onActivityResumed(activity: Activity) {
+                // 从后台回来：立即刷新，不等后台长间隔（刷新只做内存比对 + 异步轮询，主线程开销极小）
+                if (resumedActivities.getAndIncrement() == 0) {
+                    runCatching { refreshFromSnapshot() }
+                }
+            }
+
+            override fun onActivityPaused(activity: Activity) {
+                resumedActivities.updateAndGet { (it - 1).coerceAtLeast(0) }
+            }
+
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+            override fun onActivityStarted(activity: Activity) = Unit
+            override fun onActivityStopped(activity: Activity) = Unit
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+            override fun onActivityDestroyed(activity: Activity) = Unit
+        })
     }
 
     /**

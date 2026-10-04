@@ -1,6 +1,6 @@
 package com.example.menuui.ui
 
-import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -32,7 +31,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.menuui.config.AppPolicy
 import com.example.menuui.config.ConfigBus
@@ -59,18 +57,8 @@ fun AppsPage() {
 
 @Composable
 private fun AppListPage(onOpen: (Int) -> Unit) {
-    val context = LocalContext.current
+    val notifier = LocalNotifier.current
     val cfg by ConfigBus.state.collectAsState()
-
-    val publish: () -> Unit = {
-        ConfigBus.publishAsync(record = true) { r ->
-            Toast.makeText(
-                context,
-                (if (r.ok) "发布成功（${r.via}）" else "发布失败：") + r.message,
-                if (r.ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG,
-            ).show()
-        }
-    }
 
     Column(
         Modifier
@@ -92,6 +80,9 @@ private fun AppListPage(onOpen: (Int) -> Unit) {
                         .clickable { onOpen(i) },
                     onDelete = {
                         ConfigBus.update { c -> c.copy(apps = c.apps.filterIndexed { idx, _ -> idx != i }) }
+                        notifier.show("已移除 ${app.pkg.ifBlank { "应用" }}", "撤销") {
+                            ConfigBus.update { c -> c.copy(apps = c.apps.insertAt(i, app)) }
+                        }
                     },
                 )
             }
@@ -150,8 +141,6 @@ private fun AppListPage(onOpen: (Int) -> Unit) {
                 Icon(Icons.Filled.Add, null); Text(" 添加排除 uid")
             }
         }
-
-        Button(onClick = publish, modifier = Modifier.fillMaxWidth()) { Text("发布配置") }
     }
 }
 
@@ -192,6 +181,7 @@ private fun AppCard(app: AppPolicy, modifier: Modifier = Modifier, onDelete: () 
 private fun AppDetailPage(index: Int, onBack: () -> Unit) {
     val cfg by ConfigBus.state.collectAsState()
     val app = cfg.apps.getOrNull(index) ?: run { onBack(); return }
+    BackHandler(onBack = onBack) // 系统返回手势/键回到列表，而不是退出应用
 
     Column(
         Modifier

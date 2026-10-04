@@ -41,4 +41,11 @@ class CoordTransformTest {
             assertEquals(p, CoordTransform.gcj02ToWgs84(p.lat, p.lon))
         }
     }
+
+    @Test
+    fun distanceBeijingToShanghaiIsAbout1067Km() {
+        val d = CoordTransform.distanceMeters(LatLon(39.9042, 116.4074), LatLon(31.2304, 121.4737))
+        assertTrue("北京-上海 $d m", d in 1_060_000.0..1_075_000.0)
+        assertEquals(0.0, CoordTransform.distanceMeters(LatLon(1.0, 2.0), LatLon(1.0, 2.0)), 1e-9)
+    }
 }

@@ -46,3 +46,7 @@ back_up_开发测试/ven11_backup/ano_tmp/
 *.pcap
 *.pcapng
 *.raw
+
+# 密钥集中目录(keystore、百度 AK、签名密码、备忘全在里面)
+secret/
+地图KEY与SHA1.txt

@@ -1,6 +1,14 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+}
+
+// 密钥与签名凭据统一在 secret/keys.properties(整个 secret/ 已 gitignore)
+val secretProps = Properties().apply {
+    val f = rootProject.file("secret/keys.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
 }
 
 android {
@@ -15,9 +23,24 @@ android {
         versionName = "0.1.0"
     }
 
+    // 统一签名(与管理端同证书):签名权限 dev.ven11.module.permission.CONFIG
+    // 才会授予同签名的管理端,provider 直写通道依赖它
+    signingConfigs {
+        create("gogogo") {
+            storeFile = rootProject.file(secretProps.getProperty("GOOGO_STORE_FILE", "secret/GoGoGo.jks"))
+            storePassword = secretProps.getProperty("GOOGO_STORE_PASSWORD", "")
+            keyAlias = secretProps.getProperty("GOOGO_KEY_ALIAS", "")
+            keyPassword = secretProps.getProperty("GOOGO_KEY_PASSWORD", "")
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("gogogo")
+        }
         release {
             isMinifyEnabled = false // 反射字段名不可混淆
+            signingConfig = signingConfigs.getByName("gogogo")
         }
     }
 

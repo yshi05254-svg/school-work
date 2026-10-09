@@ -37,6 +37,11 @@ object SystemServiceBridge {
         // startOtherServices 后段用新建的 PathClassLoader 加载——onSystemServerStarting
         // 时该 classloader 还不存在，立即路径必然 not found（审查七 #1b）
         installDeferredWifiHooks(module, cl)
+        // 作用域登记表：作用域内应用进程启动时经 sendExtraCommand 登记，
+        // pkg=null 的作用域默认策略据此只命中作用域内应用（先于定位钩装好）
+        runCatching { ScopeCommandHook.install(module, cl) }.onFailure {
+            ProbeLog.log("SCOPE-INSTALL-ERR ${it.javaClass.simpleName}: ${it.message}")
+        }
         // 方案B：服务端定位伪装（定位类都在主 services.jar，开机即可加载；
         // 独立 runCatching，WiFi 链路任何问题不影响定位钩安装，反之亦然）
         runCatching {

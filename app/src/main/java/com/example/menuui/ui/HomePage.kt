@@ -108,7 +108,8 @@ fun HomePage() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                "目标应用（${cfg.apps.size}）：${cfg.apps.joinToString("、") { it.pkg }}",
+                "目标应用：LSPosed 作用域内已勾选的应用" +
+                    if (cfg.apps.isEmpty()) "" else "（单独设置 ${cfg.apps.size} 个）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

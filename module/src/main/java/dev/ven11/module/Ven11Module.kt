@@ -15,6 +15,7 @@ import dev.ven11.module.hook.regional.ClientTimezoneHooks
 import dev.ven11.module.hook.sim.ClientSimHooks
 import dev.ven11.module.hook.wifi.ClientConnectivityHooks
 import dev.ven11.module.hook.wifi.ClientWifiHooks
+import dev.ven11.module.ipc.ScopeRegistry
 import dev.ven11.module.ipc.SnapshotStore
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
@@ -37,6 +38,9 @@ import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
  *    classloader 不存在时由 SystemServiceBridge 的 startServiceFromJar 延迟路径补装）
  *  - com.android.phone → 框架侧基站钩（com.android.phone.PhoneInterfaceManager）
  *  - 普通应用（首个包）→ 客户端钩全套；模块自身与系统 uid 跳过
+ *
+ * 作用域即目标：模块被注入的普通应用进程向 system_server 登记（[ScopeRegistry]），
+ * 作用域默认策略（pkg=null）对它们直接生效——LSPosed 里勾选即可，管理端不必再添加。
  */
 class Ven11Module : XposedModule() {
 
@@ -98,6 +102,7 @@ class Ven11Module : XposedModule() {
     }
 
     private fun installClientHooks(cl: ClassLoader, pkg: String) {
+        ScopeRegistry.registerSelf(pkg) // 先登记作用域：首个定位请求到达 system_server 前就位
         SnapshotStore.current() // 预热一次：首轮文件 IO 不落在首个被拦调用上
         var n = 0
         n += ClientLocationHooks(this).install(cl, pkg)

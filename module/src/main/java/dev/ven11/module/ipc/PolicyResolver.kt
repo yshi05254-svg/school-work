@@ -15,8 +15,12 @@ import dev.ven11.module.model.VirtualEnvironment
  *
  * 命中顺序：
  *  1. 精确策略：pkg 相等且（策略未限定 userId 或 userId 匹配 uid/100000）→ exact=true；
- *  2. 全局回落策略：pkg=null 的那条（GPS 等域使用其环境；语言域只认 exact）；
+ *  2. 作用域默认策略：pkg=null 的那条，**只对 LSPosed 作用域内的应用**生效
+ *     （[ScopeRegistry.inScope]）——在作用域里勾选即生效，管理端无需再逐个添加；
+ *     命中视同精确（exact=true，语言/时区域同样生效）；
  *  3. 都没有 → policy=null，domainEnabled 仍可对"全局开关 + 排除名单"作出判断。
+ *     作用域外的应用不再命中 pkg=null 策略：框架钩（system_server / phone）面对
+ *     所有调用方，必须限定在作用域内，否则会误伤系统服务与无关应用。
  *
  * 热路径成本：resolve 被 GPS / WiFi 等高频回调逐次调用，带 (pkg,uid) TTL 微缓存；
  * TTL 到期前的快照热更新对该调用方最多延迟 CACHE_TTL_MS 可见。
@@ -29,7 +33,7 @@ object PolicyResolver {
     enum class Domain { LOCATION, CELL, WIFI, SIM, BLUETOOTH, LANGUAGE, TIMEZONE }
 
     class EffectivePolicy(
-        /** 精确命中 pkg/userId 策略（true）；全局回落 / 无策略（false） */
+        /** 命中该应用的策略：精确 pkg/userId 或作用域默认（true）；无策略（false） */
         val exact: Boolean,
         val policy: Policy?,
         val environment: VirtualEnvironment?,
@@ -58,10 +62,9 @@ object PolicyResolver {
 
         val snap = SnapshotStore.current()
         val userId = uid / 100_000
-        val exact = snap.policies.firstOrNull {
+        val policy = snap.policies.firstOrNull {
             it.pkg == pkg && (it.userId == null || it.userId == userId)
-        }
-        val policy = exact ?: snap.policies.firstOrNull { it.pkg == null }
+        } ?: snap.policies.firstOrNull { it.pkg == null }?.takeIf { ScopeRegistry.inScope(uid) }
         val env = policy?.environmentId
             ?.let { id -> snap.environments.firstOrNull { it.id == id } }
         val gateOpen = snap.masterEnabled &&
@@ -69,7 +72,7 @@ object PolicyResolver {
             uid !in snap.excludedUids
 
         return EffectivePolicy(
-            exact = exact != null,
+            exact = policy != null,
             policy = policy,
             environment = env,
             jitter = snap.jitter,
@@ -81,7 +84,7 @@ object PolicyResolver {
         }
     }
 
-    /** 快照版本变化时由 SnapshotStore 调用：总开关/排除名单变化不吃 TTL 延迟 */
+    /** 快照版本变化 / 作用域登记变化时调用：总开关/排除名单/作用域变化不吃 TTL 延迟 */
     fun invalidate() {
         cache.clear()
     }

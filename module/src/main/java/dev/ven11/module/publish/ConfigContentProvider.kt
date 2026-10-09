@@ -8,6 +8,7 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Binder
 import android.os.Process
+import dev.ven11.module.ipc.ScopeRegistry
 import dev.ven11.module.model.SnapshotParser
 import java.io.File
 import org.json.JSONObject
@@ -16,7 +17,7 @@ import org.json.JSONObject
  * 快照载荷的跨进程通道（审查八 #1）：管理端 insert 写入，被钩进程（普通应用 /
  * system_server / phone）query 读取。binder 通道不受 SELinux 目录限制，三类进程
  * 读到同一版本；读侧按调用方放行（[callerAllowed]：系统 uid / 模块自身 / 持签名
- * 权限的管理端 / 快照策略内的目标应用），写侧由 manifest 的签名权限保护
+ * 权限的管理端 / 快照策略内或 LSPosed 作用域内的目标应用），写侧由 manifest 的签名权限保护
  * （android:writePermission），签名不符的第三方无法注入。
  *
  * 载荷整体单文件存放于 device-protected storage：directBoot 期间 system_server
@@ -81,22 +82,24 @@ class ConfigContentProvider : ContentProvider() {
 
     // ---------------------------------------------------------------- 读取鉴权
 
-    /** 快照衍生的读侧 ACL：mtime 做缓存键，精确包名 / 全局策略+排除名单 */
+    /** 快照衍生的读侧 ACL：mtime 做缓存键，精确包名 / 作用域默认策略+排除名单 */
     private class ReaderAcl(
         val mtime: Long,
         val exact: Set<String>,
         val global: Boolean,
         val excluded: Set<String>,
     ) {
-        fun allows(pkg: String) = pkg in exact || (global && pkg !in excluded)
+        fun allows(pkg: String, inScope: () -> Boolean) =
+            pkg in exact || (global && pkg !in excluded && inScope())
     }
 
     @Volatile private var acl: ReaderAcl? = null
 
     /**
      * 只放行四类调用方：系统 uid（system_server、phone）、模块自己、持 CONFIG
-     * 签名权限的管理端、快照里有策略的目标应用。其余应用 query 返回 null——
-     * 通道不再暴露给无关进程探测模块配置。
+     * 签名权限的管理端、快照里有策略的目标应用（精确包名，或作用域默认策略下
+     * 在 LSPosed 作用域内的应用——作用域由 system_server 的 [ScopeRegistry] 回答）。
+     * 其余应用 query 返回 null——通道不再暴露给无关进程探测模块配置。
      */
     private fun callerAllowed(): Boolean {
         val uid = Binder.getCallingUid()
@@ -105,7 +108,8 @@ class ConfigContentProvider : ContentProvider() {
         if (ctx.checkCallingPermission(PERMISSION_CONFIG) == PackageManager.PERMISSION_GRANTED) return true
         val pkgs = runCatching { ctx.packageManager.getPackagesForUid(uid) }.getOrNull() ?: return false
         val a = readerAcl() ?: return false
-        return pkgs.any { a.allows(it) }
+        val inScope = { ScopeRegistry.refresh(ctx); ScopeRegistry.inScope(uid) }
+        return pkgs.any { a.allows(it, inScope) }
     }
 
     private fun readerAcl(): ReaderAcl? {

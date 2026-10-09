@@ -8,9 +8,12 @@ import org.json.JSONObject
  * （改动需两处同步）。org.json 构建，杜绝字符串模板拼 JSON 的引号/转义问题。
  *
  * 结构契约：
- *  - 只发布一个 environment（id=1）= ManagerConfig.env；全部 per-app 策略绑定它；
- *  - pkg=null 的全局策略不生成：会命中 phone/system_server 框架钩的所有调用方；
- *    空白包名 / enabled=false 的应用**整条跳过**（无策略 = 该应用全域透传真实值）；
+ *  - 只发布一个 environment（id=1）= ManagerConfig.env；全部策略绑定它；
+ *  - 作用域默认策略（pkg=null）恒发布：模块只让它命中 LSPosed 作用域内的应用
+ *    （模块侧 ScopeRegistry），作用域里勾选即生效，应用页无需再逐个添加；
+ *  - 应用页条目是单独设置：enabled=true 发精确策略（可带严格模式；作用域外的应用
+ *    也能由框架钩伪装定位）；enabled=false 并入 excludedPackages（作用域内也透传
+ *    真实值）；空白包名整条跳过；
  *  - languageTag/timezoneId 取环境建议值（国外预设），仍空则省略字段；
  *  - joystick 段由摇杆服务实时写入（[joystickJson]），非摇杆发布时整体省略。
  */
@@ -22,7 +25,7 @@ object SnapshotBuilder {
         root.put("masterEnabled", cfg.masterEnabled)
         // 方案B：模块侧 SnapshotParser optBoolean("serverLocation", true) 同名对应
         root.put("serverLocation", cfg.serverLocation)
-        root.put("excludedPackages", JSONArray(cfg.excludedPackages.distinct()))
+        root.put("excludedPackages", JSONArray(excludedPackages(cfg)))
         root.put("excludedUids", JSONArray(cfg.excludedUids.distinct()))
 
         root.put(
@@ -111,19 +114,31 @@ object SnapshotBuilder {
         .put("signalDbm", w.signalDbm)
         .put("frequencyMhz", w.frequencyMhz)
 
-    /** 仅发 enabled 且包名合法的策略：空白包名会整条变成 pkg=null 全局策略（模块端语义），必须跳过 */
+    /** 手填排除名单 + 应用页里停用的应用（作用域默认策略对它们不生效） */
+    private fun excludedPackages(cfg: ManagerConfig): List<String> =
+        (cfg.excludedPackages + cfg.apps.filter { !it.enabled }.map { it.pkg })
+            .map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+
+    /**
+     * 精确策略（enabled 且包名合法）在前，作用域默认策略（pkg=null）在末尾。
+     * 空白包名必须跳过：模块端把缺失 pkg 解析为 null，会变成第二条默认策略。
+     */
     private fun policiesJson(cfg: ManagerConfig): JSONArray = JSONArray().apply {
         cfg.apps.forEach { app ->
             val pkg = app.pkg.trim()
             if (!app.enabled || pkg.isEmpty()) return@forEach
-            val o = JSONObject()
-                .put("pkg", pkg)
-                .put("environmentId", 1L)
-                .put("strictMode", app.strictMode)
-            if (cfg.env.languageTag.isNotBlank()) o.put("languageTag", cfg.env.languageTag)
-            if (cfg.env.timezoneId.isNotBlank()) o.put("timezoneId", cfg.env.timezoneId)
-            put(o)
+            put(policyJson(cfg, app.strictMode).put("pkg", pkg))
         }
+        put(policyJson(cfg, strictMode = false)) // 作用域默认策略：不写 pkg
+    }
+
+    private fun policyJson(cfg: ManagerConfig, strictMode: Boolean): JSONObject {
+        val o = JSONObject()
+            .put("environmentId", 1L)
+            .put("strictMode", strictMode)
+        if (cfg.env.languageTag.isNotBlank()) o.put("languageTag", cfg.env.languageTag)
+        if (cfg.env.timezoneId.isNotBlank()) o.put("timezoneId", cfg.env.timezoneId)
+        return o
     }
 
     private fun simJson(s: SimDraft): JSONObject {

@@ -77,7 +77,8 @@ data class JoystickState(
 )
 
 /**
- * 策略：pkg=null 为全局回落策略（语言域只认精确命中，见 ClientLanguageHooks）；
+ * 策略：pkg=null 为作用域默认策略，只命中 LSPosed 作用域内的应用（PolicyResolver /
+ * ScopeRegistry），命中视同精确（语言域同样生效，见 ClientLanguageHooks）；
  * disabledDomains 为 Domain.name 集合（PolicyResolver.Domain），空 = 全部域开启。
  */
 data class Policy(

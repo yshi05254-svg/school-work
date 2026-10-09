@@ -111,8 +111,9 @@ object SnapshotStore {
         return current
     }
 
-    /** 在 pollLock 内执行：轮询各通道 + "一直拿不到配置"的持续告警检查 */
+    /** 在 pollLock 内执行：作用域刷新 + 轮询各通道 + "一直拿不到配置"的持续告警检查 */
     private fun pollOnce(): List<Pair<Snapshot, Snapshot>> {
+        ScopeRegistry.refresh() // phone 进程：刷新作用域 uid 列表（其它进程 no-op）
         val events = pollChannels()
         warnIfStillNoConfig(SystemClock.elapsedRealtime())
         return events

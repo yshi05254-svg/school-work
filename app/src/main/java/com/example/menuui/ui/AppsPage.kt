@@ -36,9 +36,9 @@ import com.example.menuui.config.AppPolicy
 import com.example.menuui.config.ConfigBus
 
 /**
- * 应用页：应用以卡片列表呈现，点进卡片单独设置该应用——
- * 仅两项目：① 是否对该应用生效 ② 是否启用严格模式。
- * enabled=false 的应用不发策略（模块端全域透传真实值）。
+ * 应用页：LSPosed 作用域里勾选的应用自动生效，无需在这里添加；
+ * 列表只放需要单独设置的应用——① 是否对该应用生效 ② 是否启用严格模式。
+ * enabled=false 的应用并入排除名单（即使在作用域内也全域透传真实值）。
  */
 @Composable
 fun AppsPage() {
@@ -68,8 +68,8 @@ private fun AppListPage(onOpen: (Int) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         SectionCard(
-            title = "目标应用（${cfg.apps.count { it.enabled }} 生效 / 共 ${cfg.apps.size}）",
-            subtitle = "点击卡片单独设置：是否生效、严格模式",
+            title = "单独设置（${cfg.apps.size}）",
+            subtitle = "LSPosed 作用域里勾选的应用自动生效，无需添加；这里只放要单独停用或开严格模式的应用",
         ) {
             cfg.apps.forEachIndexed { i, app ->
                 AppCard(
@@ -90,10 +90,10 @@ private fun AppListPage(onOpen: (Int) -> Unit) {
                 ConfigBus.update { c -> c.copy(apps = c.apps + AppPolicy(pkg = "")) }
                 onOpen(cfg.apps.size)
             }) {
-                Icon(Icons.Filled.Add, null); Text(" 添加应用")
+                Icon(Icons.Filled.Add, null); Text(" 单独设置应用")
             }
             Text(
-                "提示：LSPosed 作用域内未勾选的应用即使配置了策略也不生效（加载范围由 LSPosed Manager 管理）。",
+                "提示：目标应用在 LSPosed Manager 的模块作用域里勾选即可，勾选后重启该应用生效。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -195,7 +195,7 @@ private fun AppDetailPage(index: Int, onBack: () -> Unit) {
             Text("应用设置", style = MaterialTheme.typography.titleLarge)
         }
 
-        SectionCard(title = "包名", subtitle = "与 LSPosed 作用域中勾选的包一致才生效") {
+        SectionCard(title = "包名", subtitle = "要单独设置的应用包名") {
             StrField("包名", app.pkg, { v ->
                 editApp(index) { it.copy(pkg = v.trim()) }
             }, hint = "com.tencent.mm")
@@ -204,7 +204,7 @@ private fun AppDetailPage(index: Int, onBack: () -> Unit) {
         SectionCard(title = "该应用的设置") {
             SwitchRow(
                 title = "对该应用生效",
-                subtitle = "开启 = 该应用使用当前位置环境；关闭 = 不发策略，所有域透传真实值",
+                subtitle = "开启 = 该应用使用当前位置环境；关闭 = 即使在作用域内也透传所有真实值",
                 checked = app.enabled,
                 onChange = { on -> editApp(index) { it.copy(enabled = on) } },
             )

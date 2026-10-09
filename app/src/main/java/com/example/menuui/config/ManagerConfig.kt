@@ -6,7 +6,10 @@ package com.example.menuui.config
  * 拦截（文本框本地态 → 解析成功才提交），配置里永远不会出现 NaN/空串坐标。
  *
  * 环境模型：快照只发布一个 environment（id=1）= 当前编辑的环境（预设选中即载入编辑器，
- * 自定义修改直接改它）；per-app 策略全部绑定 environmentId=1。
+ * 自定义修改直接改它）；作用域默认策略与 per-app 策略全部绑定 environmentId=1。
+ *
+ * 目标应用：LSPosed 作用域里勾选的应用自动生效（作用域默认策略），[apps] 只用于
+ * 单独设置（严格模式 / 停用 / 作用域外应用的定位伪装）。
  */
 data class ManagerConfig(
     val masterEnabled: Boolean = true,
@@ -16,11 +19,8 @@ data class ManagerConfig(
     val jitterAmplitudeMeters: Double = 8.0,
     /** 当前环境（预设选中载入 / 自定义编辑就地修改） */
     val env: EnvDraft = Presets.all[0].env,
-    /** per-app 精确策略（pkg=null 的全局策略会命中框架钩所有调用方，不提供） */
-    val apps: List<AppPolicy> = listOf(
-        AppPolicy(pkg = "com.tencent.mm"),
-        AppPolicy(pkg = "com.autonavi.minimap"),
-    ),
+    /** per-app 单独设置；作用域内应用无需添加（作用域默认策略已覆盖） */
+    val apps: List<AppPolicy> = emptyList(),
     val excludedPackages: List<String> = emptyList(),
     val excludedUids: List<Int> = emptyList(),
     /** SIM 全局段（随预设切换整体载入，可在更多页编辑） */
@@ -88,7 +88,7 @@ data class EnvDraft(
 
 /**
  * per-app 策略草稿（应用页每应用仅两项设置）：
- *  - enabled=false 的应用**不进快照 policies**（模块无策略 → 全域透传真实值）；
+ *  - enabled=false 的应用并入快照 excludedPackages（即使在作用域内也全域透传真实值）；
  *  - strictMode=true 时该应用无环境可用则定位直接失败（默认透传）。
  */
 data class AppPolicy(

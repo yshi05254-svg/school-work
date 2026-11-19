@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 模块配置通道（签名权限）：与模块同签名时 ContentProvider 直写可用，
          不必每次回落 su 文件通道 -->
@@ -19,6 +20,11 @@
     <queries>
         <package android:name="dev.ven11.module" />
     </queries>
+    <!-- 应用页显示作用域内应用的名称/图标，并据 FLAG_SYSTEM 过滤系统应用：
+         作用域是任意包集合，<queries> 无法逐个声明 -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <application
         android:label="ven11 manager"

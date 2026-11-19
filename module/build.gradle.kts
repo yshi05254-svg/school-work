@@ -57,4 +57,12 @@ dependencies {
     // libxposed 新 API，仅编译期（宿主 LSPosed 运行时提供）；
     // Maven Central 上可用版本 101.0.0+（评审时写过的 "100" 坐标不存在）
     compileOnly("io.github.libxposed:api:102.0.0")
+    // 模块进程侧服务（打进 APK）：读取 LSPosed 作用域，供管理端自动同步目标应用（ScopeSource）
+    implementation("io.github.libxposed:service:102.0.0")
+}
+
+// libxposed:service/interface 的 AAR 元数据声明 minCompileSdk=37，超出 AGP 8.7.3 支持的 35；
+// 这两个库运行时只用 Binder / Bundle / ContentProvider（API 26+），跳过该元数据检查
+tasks.matching { it.name.startsWith("check") && it.name.endsWith("AarMetadata") }.configureEach {
+    enabled = false
 }

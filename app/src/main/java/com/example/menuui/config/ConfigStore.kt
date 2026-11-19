@@ -53,6 +53,7 @@ object ConfigStore {
                 }
             },
         )
+        o.put("scopeSeen", JSONArray(c.scopeSeen))
         o.put("excludedPackages", JSONArray(c.excludedPackages))
         o.put("excludedUids", JSONArray(c.excludedUids))
         o.put("sim", simJson(c.sim))
@@ -163,7 +164,10 @@ object ConfigStore {
         jitterEnabled = o.optBoolean("jitterEnabled", true),
         jitterAmplitudeMeters = o.optDouble("jitterAmplitudeMeters", 8.0),
         env = o.optJSONObject("env")?.let(::parseEnv) ?: ManagerConfig().env,
-        apps = o.optJSONArray("apps")?.mapObj(::parseApp) ?: ManagerConfig().apps,
+        // 空包名条目从不发布（SnapshotBuilder 跳过），只是"手动添加未填写"的残留：加载即丢弃
+        apps = o.optJSONArray("apps")?.mapObj(::parseApp)?.filter { it.pkg.isNotBlank() }
+            ?: ManagerConfig().apps,
+        scopeSeen = o.optJSONArray("scopeSeen").stringList(),
         excludedPackages = o.optJSONArray("excludedPackages").stringList(),
         excludedUids = o.optJSONArray("excludedUids")?.let { arr ->
             (0 until arr.length()).mapNotNull { idx -> arr.opt(idx) as? Int }

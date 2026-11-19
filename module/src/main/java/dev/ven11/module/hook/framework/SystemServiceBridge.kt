@@ -45,6 +45,14 @@ object SystemServiceBridge {
         }.onFailure {
             ProbeLog.log("SRVLOC-BRIDGE-ERR ${it.javaClass.simpleName}: ${it.message}")
         }
+        // 包可见性精确放行：让无 QUERY_ALL_PACKAGES 的目标应用（如淘宝/微信）能解析
+        // dev.ven11.module.config，使客户端钩同步到最新快照
+        runCatching {
+            val v = FrameworkVisibilityHooks.install(module, cl)
+            if (v >= 0) ProbeLog.log("FW-VISIBILITY-BRIDGE armed=$v")
+        }.onFailure {
+            ProbeLog.log("FW-VISIBILITY-BRIDGE-ERR ${it.javaClass.simpleName}: ${it.message}")
+        }
         return n
     }
 

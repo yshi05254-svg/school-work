@@ -9,35 +9,36 @@ import dev.ven11.module.Ven11Module
 import dev.ven11.module.hook.location.DynamicLocationSource
 import dev.ven11.module.hook.location.LocationFactory
 import dev.ven11.module.hook.location.LocationFactory.Decision
-import dev.ven11.module.ipc.PolicyResolver
 import dev.ven11.module.ipc.SnapshotStore
 import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Function
 
 /**
- * 服务端主动定位注入（方案B 延伸：摇杆/路线室内生效）。
+ * 服务端主动定位注入（方案B 延伸：摇杆/路线/静态环境室内生效）。
  *
- * 问题：改写模式只能改写系统交付给应用的真实 fix。室内无 GPS 时系统不给应用交付
- * 任何定位，摇杆推进的坐标没有载体送达——定位点冻结（见《摇杆失效原因.md》）。
+ * 问题：被动改写模式只能改写系统交付给应用的真实 fix。室内无 GPS 时系统不给应用交付
+ * 任何定位，导致不仅摇杆/路线无法推进，连高德（不注册 network）、淘宝（500ms 短超时）
+ * 在静态环境下也拿不到任何 gps fix。
  *
- * 做法：在 system_server 内，当目标应用有**活跃连续**定位注册、且其环境处于**动态源**
- * （摇杆或路线）激活态时，按请求间隔主动向该注册交付合成定位。交付完全复用系统原生
- * 入口 `LocationProviderManager.deliverToListeners(Function)`（dexdump 核实：内部持
- * mMultiplexerLock + ReentrancyGuard，只对 isActive 注册调 fn），fn 仅对目标注册返回
- * `acceptLocationChange(载体)`、其余返回 null——因此只注入目标应用，不污染系统组件与
- * 无关应用，锁与线程模型与真实 onReportLocation 完全一致。
+ * 做法：在 system_server 内，当目标应用有活跃定位注册（连续 LocationRegistration 或
+ * 一次性 GetCurrentLocationListenerRegistration）时，按请求间隔主动向该注册交付合成定位。
+ * 交付完全复用系统原生入口 `LocationProviderManager.deliverToListeners(Function)`
+ * （dexdump 核实：内部持 mMultiplexerLock + ReentrancyGuard，只对 isActive 注册调 fn），
+ * fn 仅对目标注册返回 `acceptLocationChange(载体)`、其余返回 null——因此只注入目标应用，
+ * 不污染系统组件与无关应用，锁与线程模型与真实 onReportLocation 完全一致。
  *
- * manager 捕获：从已稳定触发的方法钩取 gps/fused 的 LocationProviderManager——
- * registerLocationRequest（应用注册时，thisObject 即 manager；室内也触发）为主，
- * acceptLocationChange 的注册对象经 this$0 取外部 manager 为兜底。构造器钩不可靠
- * （Lifecycle 可能在 onSystemServerStarting 装钩前已构造），故不用。
+ * manager 捕获：从已稳定触发的方法钩取 gps/fused/network 的 LocationProviderManager——
+ * registerLocationRequest / getCurrentLocation（应用注册时，thisObject 即 manager）为主，
+ * acceptLocationChange 的注册对象经 this$0 取外部 manager 为兜底。
  *
  * 行为边界：
- *  - 仅动态源激活时注入；静态环境仍走被动改写（与改动前完全一致）；
+ *  - 目标应用处于 SPOOF 模式（静态、摇杆、路线）且无近期真实流时注入；
  *  - 每注册记最近一次**真实**交付时刻，真实流在跑时跳过注入（室外 GPS 正常时自动让路）；
+ *  - 注册瞬间由 pokeSoon() 约 100ms 唤醒推首帧，无活跃目标时回落长睡，几乎零功耗；
  *  - serverLocation / masterEnabled 关闭 → 整体停摆（kill-switch）。
  *
  * 安全约束（同 ServerLocationHooks §1.5）：异常不抛进 system_server；回调零 IO/IPC；
@@ -45,20 +46,22 @@ import java.util.function.Function
  */
 object ServerLocationInjector {
 
-    private const val TICK_MS = 1_000L
-    private const val IDLE_SLEEP_MS = 3_000L
+    private const val STATIC_TICK_MS = 1_000L
+    private const val DYNAMIC_TICK_MS = 500L
+    private const val IDLE_SLEEP_MS = 5_000L
+    private const val POKE_DELAY_MS = 100L
 
     private const val DEFAULT_INTERVAL_MS = 1_000L
     private const val MIN_INTERVAL_MS = 250L
     private const val MAX_INTERVAL_MS = 5_000L
 
     /** 真实交付在 REAL_FRESH_MS 内视为"真实流在跑"，本注册本轮跳过注入 */
-    private const val REAL_FRESH_MS = 1_500L
+    private const val REAL_FRESH_MS = 2_000L
 
-    /** 只注入实时 provider（gps/fused）；network/passive 不注入 */
-    private val REALTIME_PROVIDERS = setOf("gps", "fused")
+    /** 只注入实时/网络定位 provider（排除 passive，避免污染全局 lastLocation 与无关应用） */
+    private val REALTIME_PROVIDERS = setOf("gps", "fused", "network")
 
-    /** name -> LocationProviderManager（gps/fused）；由钩捕获 */
+    /** name -> LocationProviderManager（gps/fused/network）；由钩捕获 */
     private val managers = ConcurrentHashMap<String, Any>()
 
     /** 注册对象 -> 最近一次真实交付 elapsedRealtime（弱键，注册回收即失效） */
@@ -68,14 +71,18 @@ object ServerLocationInjector {
     private val lastInject = Collections.synchronizedMap(WeakHashMap<Any, Long>())
 
     /** 注入期间置位：onAcceptLocationChange 据此跳过"真实交付"记账 */
-    private val injecting = ThreadLocal.withInitial { false }
+    private val injecting: ThreadLocal<Boolean> = ThreadLocal.withInitial { false }
+
+    @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
+    private val wakeLock = Object()
+    @Volatile private var pokeRequested = false
 
     private val started = AtomicBoolean(false)
     private val errSeen = ConcurrentHashMap.newKeySet<String>()
 
     // ---------------------------------------------------------------- 捕获 manager
 
-    /** registerLocationRequest 钩调用：thisObject 即 LocationProviderManager */
+    /** registerLocationRequest / getCurrentLocation 钩调用：thisObject 即 LocationProviderManager */
     fun recordManager(manager: Any?) {
         val name = ServerReflect.providerManagerName(manager)
         if (name == null || name !in REALTIME_PROVIDERS) return
@@ -93,8 +100,17 @@ object ServerLocationInjector {
 
     /** onAcceptLocationChange 调用：登记一次真实交付（注入自身被 injecting 标志排除） */
     fun noteDelivery(registration: Any?) {
-        if (registration == null || injecting.get()) return
+        if (registration == null || injecting.get() == true) return
         lastReal[registration] = SystemClock.elapsedRealtime()
+    }
+
+    /** 目标应用刚注册定位请求/getCurrentLocation：唤醒注入线程尽快推首帧 */
+    fun pokeSoon() {
+        ensureStarted()
+        synchronized(wakeLock) {
+            pokeRequested = true
+            wakeLock.notifyAll()
+        }
     }
 
     private fun ensureStarted() {
@@ -107,45 +123,73 @@ object ServerLocationInjector {
 
     private fun loop() {
         while (true) {
-            val sleep = runCatching { tickOnce() }.getOrElse { err("tick", it); IDLE_SLEEP_MS }
-            try { Thread.sleep(sleep) } catch (_: InterruptedException) { return }
+            val poked = synchronized(wakeLock) {
+                val p = pokeRequested
+                pokeRequested = false
+                p
+            }
+            if (poked) {
+                try {
+                    Thread.sleep(POKE_DELAY_MS)
+                } catch (_: InterruptedException) {
+                    return
+                }
+                synchronized(wakeLock) { pokeRequested = false }
+            }
+            val sleepMs = runCatching { tickOnce() }.getOrElse { err("tick", it); IDLE_SLEEP_MS }
+            val interrupted = synchronized(wakeLock) {
+                if (!pokeRequested) {
+                    try {
+                        wakeLock.wait(sleepMs)
+                    } catch (_: InterruptedException) {
+                        return@synchronized true
+                    }
+                }
+                false
+            }
+            if (interrupted) return
         }
     }
 
-    /** 一轮：返回下次睡眠。无动态源激活 / 无 manager → idle 长睡 */
+    /** 一轮：返回下次睡眠。无可用配置 / 无 manager / 无活跃目标 → idle 长睡 */
     private fun tickOnce(): Long {
         if (managers.isEmpty()) return IDLE_SLEEP_MS
         val snap = SnapshotStore.current()
-        if (!snap.masterEnabled || !snap.serverLocation) return IDLE_SLEEP_MS
-        // 全局廉价闸：摇杆激活，或存在任一路线策略；都不满足则静态，无需注入
+        if (!snap.masterEnabled || !snap.serverLocation ||
+            snap.environments.isEmpty() || snap.policies.isEmpty()
+        ) {
+            return IDLE_SLEEP_MS
+        }
+
         val joystickOn = DynamicLocationSource.joystickFix(snap.joystick) != null
         val routeConfigured = snap.policies.any { it.routeId != 0L }
-        if (!joystickOn && !routeConfigured) return IDLE_SLEEP_MS
+        val tickMs = if (joystickOn || routeConfigured) DYNAMIC_TICK_MS else STATIC_TICK_MS
 
+        val activeTargets = AtomicInteger(0)
         for ((name, manager) in managers) {
-            runCatching { ServerReflect.deliverToListeners(manager, injectFn(name)) }
+            runCatching { ServerReflect.deliverToListeners(manager, injectFn(name, activeTargets)) }
                 .onFailure { err("deliver", it) }
         }
-        return TICK_MS
+        return if (activeTargets.get() > 0) tickMs else IDLE_SLEEP_MS
     }
 
     // ---------------------------------------------------------------- 注入 Function
 
-    private fun injectFn(providerName: String): Function<Any?, Any?> = Function { reg ->
-        try {
-            injectOne(providerName, reg)
-        } catch (t: Throwable) {
-            err("inject-fn", t)
-            null
+    private fun injectFn(providerName: String, activeTargets: AtomicInteger): Function<Any?, Any?> =
+        Function { reg ->
+            try {
+                injectOne(providerName, reg, activeTargets)
+            } catch (t: Throwable) {
+                err("inject-fn", t)
+                null
+            }
         }
-    }
 
-    private fun injectOne(providerName: String, registration: Any?): Any? {
+    private fun injectOne(providerName: String, registration: Any?, activeTargets: AtomicInteger): Any? {
         registration ?: return null
-        // 只注入连续注册（LocationRegistration 家族：listener + PendingIntent）；
-        // 一次性 getCurrentLocation 不补流。LocationRegistration 是抽象基类，
-        // 运行时类是其子类——按父类链判定，simpleName 相等判永不成立（回归复测实测）
-        if (!isContinuousRegistration(registration)) return null
+        val continuous = isContinuousRegistration(registration)
+        val getCurrent = !continuous && isGetCurrentRegistration(registration)
+        if (!continuous && !getCurrent) return null
 
         val identity = ServerReflect.registrationIdentity(registration)
         val uid = ServerReflect.identityUid(identity)
@@ -153,18 +197,17 @@ object ServerLocationInjector {
         val pkg = ServerReflect.identityPkg(identity) ?: return null
 
         if (ServerLocationDecider.modeFor(uid, pkg) != ServerLocationDecider.Mode.SPOOF) return null
-
-        // 该应用是否动态激活（摇杆/路线）；静态不注入，保持原被动改写行为
-        val eff = PolicyResolver.resolve(pkg, uid)
-        if (!dynamicActive(eff)) return null
+        activeTargets.incrementAndGet()
 
         val now = SystemClock.elapsedRealtime()
         // 真实流在跑：让路，不注入
         lastReal[registration]?.let { if (now - it < REAL_FRESH_MS) return null }
-        // 按请求间隔节流
-        val interval = ServerReflect.requestIntervalMillis(registration, DEFAULT_INTERVAL_MS)
-            .coerceIn(MIN_INTERVAL_MS, MAX_INTERVAL_MS)
-        lastInject[registration]?.let { if (now - it < (interval * 0.9).toLong()) return null }
+        // 连续注册按请求间隔节流；一次性 getCurrentLocation 不节流（交付后系统自动 remove）
+        if (continuous) {
+            val interval = ServerReflect.requestIntervalMillis(registration, DEFAULT_INTERVAL_MS)
+                .coerceIn(MIN_INTERVAL_MS, MAX_INTERVAL_MS)
+            lastInject[registration]?.let { if (now - it < (interval * 0.9).toLong()) return null }
+        }
 
         // 合成载体：决策点复制，provider 用 manager 名，extras 清空（若改写翻转为透传，
         // 载体会原样交付——清空避免载体来源指纹），时间戳新鲜（否则 accept 可能按陈旧丢弃）
@@ -192,20 +235,18 @@ object ServerLocationInjector {
         return op
     }
 
-    /** 摇杆激活，或该应用绑定的路线存在且可回放 */
-    private fun dynamicActive(eff: PolicyResolver.EffectivePolicy): Boolean {
-        if (DynamicLocationSource.joystickFix(eff.payload.joystick) != null) return true
-        val routeId = eff.policy?.routeId ?: 0L
-        if (routeId == 0L) return false
-        val route = eff.payload.routes[routeId] ?: return false
-        return route.points.size >= 2
-    }
-
     /** 是否 LocationRegistration 家族（连续注册）：沿父类链找抽象基类 LocationRegistration */
-    private fun isContinuousRegistration(registration: Any): Boolean {
-        var c: Class<*>? = registration.javaClass
+    private fun isContinuousRegistration(registration: Any): Boolean =
+        hasSuperclassNamed(registration.javaClass, "LocationRegistration")
+
+    /** 是否 GetCurrentLocationListenerRegistration（一次性 getCurrentLocation） */
+    private fun isGetCurrentRegistration(registration: Any): Boolean =
+        hasSuperclassNamed(registration.javaClass, "GetCurrentLocationListenerRegistration")
+
+    private fun hasSuperclassNamed(cls: Class<*>, simpleName: String): Boolean {
+        var c: Class<*>? = cls
         while (c != null) {
-            if (c.simpleName == "LocationRegistration") return true
+            if (c.simpleName == simpleName) return true
             c = c.superclass
         }
         return false

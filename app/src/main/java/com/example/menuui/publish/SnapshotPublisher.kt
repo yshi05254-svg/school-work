@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
 import android.util.Log
+import org.json.JSONObject
 import java.io.File
 
 /**
@@ -52,15 +53,21 @@ object SnapshotPublisher {
     private const val LEGACY_DIR = "/data/local/tmp/ven11"
 
     const val MODULE_PACKAGE = "dev.ven11.module"
+    private const val MODULE_DE_DIR = "/data/user_de/0/dev.ven11.module"
+    private const val MODULE_PAYLOAD_PATH = "$MODULE_DE_DIR/files/config/payload.json"
+    private const val VECTOR_CLI = "/data/adb/modules/zygisk_vector/cli"
+    private val SCOPE_NON_APP = setOf("system", "android", "com.android.phone")
 
     // ---- 模块配置通道契约（审查八 #1）：独立 APK 不能共享代码，与
     // module 侧 ConfigContentProvider 的常量同步维护 ----
     private const val PROVIDER_PAYLOAD_URI = "content://dev.ven11.module.config/payload"
     private const val PROVIDER_VERSION_URI = "content://dev.ven11.module.config/version"
+    private const val PROVIDER_SCOPE_URI = "content://dev.ven11.module.config/scope"
     private const val PROVIDER_COL_PAYLOAD = "payload"
     private const val WAKE_ACTION = "dev.ven11.module.action.WAKE"
 
     data class Result(val ok: Boolean, val via: String, val message: String)
+    data class ScopeQueryResult(val packages: List<String>, val via: String)
 
     /**
      * 探测模块配置通道：安装状态 → provider 存活（version 查询）→ 签名比对
@@ -96,6 +103,84 @@ object SnapshotPublisher {
         return if (same) Probe.Ok(version, true) else Probe.SignatureMismatch(version)
     }
 
+    /**
+     * 读取 Vector / LSPosed 作用域（应用包名，已滤掉 system / phone 等框架项）。⚠ 阻塞，后台线程调用。
+     * 4 级通道：直查 provider → 应用广播唤醒重试 → root 广播唤醒重试 → vector-cli JSON 兜底。
+     * 全部不可用返回 null（调用方保持现状，不当作"作用域为空"去删应用）。
+     */
+    fun queryScope(context: Context): List<String>? = queryScopeWithSource(context)?.packages
+
+    fun queryScopeWithSource(context: Context): ScopeQueryResult? {
+        queryScopeOnce(context)?.let {
+            Log.i(TAG, "queryScope ok via=provider (direct) count=${it.size}")
+            return ScopeQueryResult(it, "provider")
+        }
+        wakeModule(context)
+        repeat(2) {
+            SystemClock.sleep(400)
+            queryScopeOnce(context)?.let {
+                Log.i(TAG, "queryScope ok via=provider (wake) count=${it.size}")
+                return ScopeQueryResult(it, "provider")
+            }
+        }
+        wakeModuleViaSu(context)
+        repeat(4) {
+            SystemClock.sleep(500)
+            queryScopeOnce(context)?.let {
+                Log.i(TAG, "queryScope ok via=provider (su-wake) count=${it.size}")
+                return ScopeQueryResult(it, "provider")
+            }
+        }
+        queryScopeViaVectorCli()?.let {
+            Log.i(TAG, "queryScope ok via=vector-cli count=${it.size}")
+            return ScopeQueryResult(it, "vector-cli")
+        }
+        Log.w(TAG, "queryScope failed: provider and vector-cli both unavailable")
+        return null
+    }
+
+    private fun queryScopeViaVectorCli(): List<String>? = try {
+        val proc = ProcessBuilder(
+            "su", "-c", "$VECTOR_CLI scope --json ls $MODULE_PACKAGE",
+        ).redirectErrorStream(true).start()
+        val output = proc.inputStream.bufferedReader().use { it.readText() }
+        val code = proc.waitFor()
+        if (code != 0) {
+            Log.w(TAG, "vector-cli scope failed code=$code out=${output.take(200)}")
+            null
+        } else {
+            val start = output.indexOf('{')
+            if (start < 0) null
+            else {
+                val root = JSONObject(output.substring(start))
+                if (!root.optBoolean("success", false)) null
+                else {
+                    val arr = root.optJSONArray("data") ?: return null
+                    buildList {
+                        for (i in 0 until arr.length()) {
+                            val pkg = arr.optJSONObject(i)?.optString("APP_PACKAGE").orEmpty().trim()
+                            if (pkg.isNotBlank() && pkg !in SCOPE_NON_APP) add(pkg)
+                        }
+                    }.distinct()
+                }
+            }
+        }
+    } catch (t: Throwable) {
+        Log.w(TAG, "vector-cli scope exception: ${t.javaClass.simpleName}: ${t.message}")
+        null
+    }
+
+    private fun queryScopeOnce(context: Context): List<String>? = try {
+        context.contentResolver.query(Uri.parse(PROVIDER_SCOPE_URI), null, null, null, null)
+            ?.use { c ->
+                val idx = c.getColumnIndex("pkg")
+                if (idx < 0) return@use null
+                buildList { while (c.moveToNext()) c.getString(idx)?.let(::add) }
+            }
+    } catch (_: Throwable) {
+        null
+    }
+
     /** version 轻查询：provider 不可达（Unknown URL / 异常）返回 null */
     private fun queryVersionOnce(context: Context): Long? = try {
         context.contentResolver.query(Uri.parse(PROVIDER_VERSION_URI), null, null, null, null)
@@ -120,11 +205,13 @@ object SnapshotPublisher {
         }
     }
 
-    /** root 广播唤醒（绕过 ColorOS 后台自启限制；su 不可用时静默跳过） */
-    private fun wakeModuleViaSu(context: Context) {
+    /** root 广播 + content query 唤醒（绕过 ColorOS 后台自启/stopped 限制；绝不用 --include-stopped-packages） */
+    private fun wakeModuleViaSu(@Suppress("UNUSED_PARAMETER") context: Context) {
         runCatching {
             val proc = ProcessBuilder(
-                "su", "-c", "am broadcast -a $WAKE_ACTION -p $MODULE_PACKAGE",
+                "su",
+                "-c",
+                "am broadcast -a $WAKE_ACTION -p $MODULE_PACKAGE; content query --uri $PROVIDER_VERSION_URI >/dev/null 2>&1",
             ).redirectErrorStream(true).start()
             proc.inputStream.bufferedReader().use { it.readText() }
             proc.waitFor()
@@ -160,21 +247,30 @@ object SnapshotPublisher {
     fun publish(context: Context, json: String): Result {
         val values = ContentValues(1).apply { put(PROVIDER_COL_PAYLOAD, json) }
         val payloadUri = Uri.parse(PROVIDER_PAYLOAD_URI)
-        val first = runCatching { context.contentResolver.insert(payloadUri, values) }
-        var inserted = first.getOrNull()
-        // 进程未运行（Unknown URL / null）→ 广播唤醒后短暂重试（进程冷启动约
-        // 0.5-1s，ColorOS 冻结回收频繁，给足窗口）；SecurityException（签名不符）
-        // 唤醒无意义，直接走兜底
-        if (inserted == null && first.exceptionOrNull() !is SecurityException) {
+        var lastResult = runCatching { context.contentResolver.insert(payloadUri, values) }
+        var inserted = lastResult.getOrNull()
+        // 进程未运行（Unknown URL / null）→ 两级唤醒（应用广播 → su 广播）后重试；
+        // SecurityException（签名不符）唤醒无意义，直接走兜底
+        if (inserted == null && lastResult.exceptionOrNull() !is SecurityException) {
             wakeModule(context)
-            repeat(3) {
-                SystemClock.sleep(500)
-                inserted = runCatching { context.contentResolver.insert(payloadUri, values) }.getOrNull()
+            repeat(2) {
+                SystemClock.sleep(400)
+                lastResult = runCatching { context.contentResolver.insert(payloadUri, values) }
+                inserted = lastResult.getOrNull()
                 if (inserted != null) return@repeat
+            }
+            if (inserted == null && lastResult.exceptionOrNull() !is SecurityException) {
+                wakeModuleViaSu(context)
+                repeat(3) {
+                    SystemClock.sleep(500)
+                    lastResult = runCatching { context.contentResolver.insert(payloadUri, values) }
+                    inserted = lastResult.getOrNull()
+                    if (inserted != null) return@repeat
+                }
             }
         }
         if (inserted == null) {
-            val why = first.exceptionOrNull()?.let { "${it.javaClass.simpleName}: ${it.message}" }
+            val why = lastResult.exceptionOrNull()?.let { "${it.javaClass.simpleName}: ${it.message}" }
                 ?: "insert 返回空"
             return fallbackToFile(context, json, "模块配置通道不可用（$why）")
         }
@@ -202,23 +298,17 @@ object SnapshotPublisher {
 
     private var lastFileWriteAt = 0L
 
-    /** 文件通道兜底（su 落盘 system 路径，仅 system_server 可读；应用进程走 provider + 进程内缓存） */
+    /** 文件通道兜底（su 同步写 system 通道与模块 DE payload，消除双通道脑裂） */
     private fun fallbackToFile(context: Context, json: String, why: String): Result {
         val r = publishViaSu(context, json)
-        val note = "已落盘 system 通道（仅 system_server 可读）"
+        val note = "已同步写入 system 与模块 DE 通道"
         val prefix = if (r.ok) "$why；已回落文件通道" else why
         return r.copy(message = "$prefix（${r.message}）。$note")
     }
 
     /**
      * 写缓存 → su 拷贝到同目录临时文件 → chmod → mv 原子替换；任一步失败即返回失败
-     * 结果（带可读原因）。此前直接 cp 覆盖目标文件：目标进程可能读到写了一半的 JSON，
-     * 解析失败回落 EMPTY，语言/时区跟着闪一次（审查五）；tmp + mv 是同目录 rename，
-     * 对读方原子。轮询侧只在解析成功后更新文件戳，失败会重试（审查八 #2）。
-     *
-     * system 路径落盘（与 scripts/publish-snapshot.sh 一致）：/data/system/ven11 供
-     * system_server（目录须 system 属主 700，文件 644 + restorecon）；顺带清理旧
-     * /data/local/tmp/ven11 双路径方案的残留。退出码以 system 路径文件存在为准。
+     * 结果（带可读原因）。同时在模块 DE 目录存在时原子同步 payload.json，杜绝双通道脑裂。
      */
     private fun publishViaSu(context: Context, json: String): Result {
         val cache = File(context.cacheDir, "ven11-snapshot.json.tmp").apply { writeText(json) }
@@ -228,10 +318,20 @@ object SnapshotPublisher {
             return Result(false, "local", "缓存文件重命名失败（${cache.absolutePath}）")
         }
         val tmp = "$SNAPSHOT_PATH.tmp"
+        val modTmp = "$MODULE_PAYLOAD_PATH.tmp"
+        val modCfgDir = "$MODULE_DE_DIR/files/config"
         val cmd = "mkdir -p $SNAPSHOT_DIR && chown system:system $SNAPSHOT_DIR && chmod 700 $SNAPSHOT_DIR " +
             "&& cp '${backup.absolutePath}' '$tmp' && chown system:system '$tmp' " +
             "&& chmod 644 '$tmp' && mv -f '$tmp' '$SNAPSHOT_PATH'; " +
             "restorecon '$SNAPSHOT_PATH' 2>/dev/null; " +
+            "if [ -d '$MODULE_DE_DIR' ]; then " +
+            "ug=\$(stat -c '%u:%g' '$MODULE_DE_DIR'); " +
+            "mkdir -p '$modCfgDir' && chown \"\$ug\" '$MODULE_DE_DIR/files' '$modCfgDir' " +
+            "&& chmod 700 '$modCfgDir' " +
+            "&& cp '${backup.absolutePath}' '$modTmp' && chown \"\$ug\" '$modTmp' " +
+            "&& chmod 600 '$modTmp' && mv -f '$modTmp' '$MODULE_PAYLOAD_PATH'; " +
+            "restorecon '$MODULE_DE_DIR/files' '$modCfgDir' '$MODULE_PAYLOAD_PATH' 2>/dev/null; " +
+            "fi; " +
             "rm -f $LEGACY_DIR/snapshot.json $LEGACY_DIR/snapshot.json.tmp; rmdir $LEGACY_DIR 2>/dev/null; " +
             "test -f $SNAPSHOT_PATH"
         return try {

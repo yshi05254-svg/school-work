@@ -110,27 +110,54 @@ object ServerLocationHooks {
             } else missing.add("gnss-fn")
         } ?: missing.add("gnss(mux-class)")
 
-        // ---- 注入捕获 5：registerLocationRequest（应用注册时触发，thisObject=manager；室内也有）
+        // ---- 注入捕获 5/6：registerLocationRequest & getCurrentLocation（应用注册时触发，thisObject=manager；室内也有）
         runCatching {
             cl.loadClass("com.android.server.location.provider.LocationProviderManager")
-                .declaredMethods.filter { it.name == "registerLocationRequest" }
-        }.getOrNull()?.let { ms ->
-            var armed = 0
-            for (m in ms) {
+        }.getOrNull()?.let { lpm ->
+            var regArmed = 0
+            for (m in lpm.declaredMethods) {
+                if (m.name != "registerLocationRequest") continue
                 runCatching {
                     module.hook(m).setId("ven11.srvloc.reg/${m.parameterTypes.size}")
                         .intercept(object : XposedInterface.Hooker {
                             override fun intercept(chain: XposedInterface.Chain): Any? {
                                 runCatching { ServerLocationInjector.recordManager(ServerReflect.hookInstance(chain)) }
-                                return chain.proceed()
+                                val identity = chain.args.getOrNull(1)
+                                val res = chain.proceed()
+                                pokeIfSpoofed(identity)
+                                return res
                             }
                         })
-                }.onSuccess { armed++ }.onFailure { missing.add("reg(${it.javaClass.simpleName})") }
+                }.onSuccess { regArmed++ }.onFailure { missing.add("reg(${it.javaClass.simpleName})") }
             }
-            if (armed > 0) n++ else missing.add("reg")
-        } ?: missing.add("reg(class)")
+            if (regArmed > 0) n++ else missing.add("reg")
 
-        installSummary = "installed=$n/5 missing=${missing.joinToString("|").ifEmpty { "-" }}"
+            var curArmed = 0
+            for (m in lpm.declaredMethods) {
+                if (m.name != "getCurrentLocation" ||
+                    m.parameterTypes.size < 2 ||
+                    m.parameterTypes[1].simpleName != "CallerIdentity"
+                ) continue
+                runCatching {
+                    module.hook(m).setId("ven11.srvloc.getcur/${m.parameterTypes.size}")
+                        .intercept(object : XposedInterface.Hooker {
+                            override fun intercept(chain: XposedInterface.Chain): Any? {
+                                runCatching { ServerLocationInjector.recordManager(ServerReflect.hookInstance(chain)) }
+                                val identity = chain.args.getOrNull(1)
+                                val res = chain.proceed()
+                                pokeIfSpoofed(identity)
+                                return res
+                            }
+                        })
+                }.onSuccess { curArmed++ }.onFailure { missing.add("getcur(${it.javaClass.simpleName})") }
+            }
+            if (curArmed > 0) n++ else missing.add("getcur")
+        } ?: run {
+            missing.add("reg(class)")
+            missing.add("getcur(class)")
+        }
+
+        installSummary = "installed=$n/6 missing=${missing.joinToString("|").ifEmpty { "-" }}"
         ProbeLog.log("SRVLOC-INSTALL $installSummary")
         module.log(Log.INFO, Ven11Module.TAG, "SRVLOC $installSummary")
 
@@ -139,6 +166,17 @@ object ServerLocationHooks {
         startBootIdentityLoader()
         startStatLogger()
         return n
+    }
+
+    private fun pokeIfSpoofed(identity: Any?) {
+        runCatching {
+            val uid = ServerReflect.identityUid(identity)
+            if (uid <= 0 || uid % Ven11Module.PER_USER_RANGE < Process.FIRST_APPLICATION_UID) return
+            val pkg = ServerReflect.identityPkg(identity)
+            if (ServerLocationDecider.modeFor(uid, pkg) == ServerLocationDecider.Mode.SPOOF) {
+                ServerLocationInjector.pokeSoon()
+            }
+        }
     }
 
     // ---------------------------------------------------------------- 主通道 1/2：acceptLocationChange

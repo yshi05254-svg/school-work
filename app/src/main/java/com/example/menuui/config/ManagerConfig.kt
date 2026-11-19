@@ -21,6 +21,8 @@ data class ManagerConfig(
         AppPolicy(pkg = "com.tencent.mm"),
         AppPolicy(pkg = "com.autonavi.minimap"),
     ),
+    /** 上次同步到的 LSPosed 作用域（应用包）：只按增量增删 apps，手动删除的不会被重新加回 */
+    val scopeSeen: List<String> = emptyList(),
     val excludedPackages: List<String> = emptyList(),
     val excludedUids: List<Int> = emptyList(),
     /** SIM 全局段（随预设切换整体载入，可在更多页编辑） */

@@ -29,7 +29,10 @@ import org.json.JSONObject
  */
 class ConfigContentProvider : ContentProvider() {
 
-    override fun onCreate(): Boolean = true
+    override fun onCreate(): Boolean {
+        ScopeSource.init()
+        return true
+    }
 
     override fun query(
         uri: Uri,
@@ -38,6 +41,7 @@ class ConfigContentProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
         sortOrder: String?,
     ): Cursor? {
+        if (uri.lastPathSegment == PATH_SCOPE) return queryScope()
         if (!callerAllowed()) return null
         val f = payloadFile()
         val ver = f?.lastModified() ?: 0L
@@ -78,6 +82,25 @@ class ConfigContentProvider : ContentProvider() {
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int = 0
 
     override fun getType(uri: Uri): String = TYPE
+
+    /**
+     * LSPosed 作用域（管理端自动同步目标应用用）：只给系统 uid / 模块自身 / 持签名权限
+     * 的管理端——目标应用无需知道其他目标。服务 binder 尚未投递时返回 null，
+     * 管理端据此区分"稍后重试"与"作用域为空"（空作用域返回 0 行 cursor）。
+     */
+    private fun queryScope(): Cursor? {
+        val uid = Binder.getCallingUid()
+        val trusted = uid % 100_000 < Process.FIRST_APPLICATION_UID || uid == Process.myUid() ||
+            context?.checkCallingPermission(PERMISSION_CONFIG) == PackageManager.PERMISSION_GRANTED
+        if (!trusted) return null
+        val token = Binder.clearCallingIdentity()
+        val pkgs = try {
+            ScopeSource.appScope()
+        } finally {
+            Binder.restoreCallingIdentity(token)
+        } ?: return null
+        return MatrixCursor(arrayOf(COL_PKG)).apply { pkgs.forEach { addRow(arrayOf(it)) } }
+    }
 
     // ---------------------------------------------------------------- 读取鉴权
 
@@ -153,6 +176,8 @@ class ConfigContentProvider : ContentProvider() {
     companion object {
         const val PATH_VERSION = "version"
         const val PATH_PAYLOAD = "payload"
+        const val PATH_SCOPE = "scope"
+        const val COL_PKG = "pkg"
         const val COL_VERSION = "version"
         const val COL_PAYLOAD = "payload"
         const val AUTHORITY = "dev.ven11.module.config"

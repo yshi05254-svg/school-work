@@ -24,4 +24,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    /** 从 LSPosed 管理器勾选作用域后切回即同步目标应用，无需再手动输入包名 */
+    override fun onResume() {
+        super.onResume()
+        ConfigBus.syncScopeAsync()
+    }
 }

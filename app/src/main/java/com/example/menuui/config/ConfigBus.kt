@@ -8,7 +8,11 @@ import com.example.menuui.publish.SnapshotPublisher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicLong
 
 /** 摇杆实时状态（服务积分推算的结果快照，供 UI 展示与快照 joystick 段构建） */
 data class JoystickLive(
@@ -40,6 +44,16 @@ data class PublishStatus(
     val last: PublishOutcome? = null,
 )
 
+/** Vector / LSPosed 作用域同步状态（应用页展示 + 手动同步反馈） */
+data class ScopeSyncStatus(
+    val syncing: Boolean = false,
+    val lastOk: Boolean? = null,
+    val via: String = "",
+    val count: Int = 0,
+    val at: Long = 0L,
+    val message: String = "",
+)
+
 /**
  * 进程单例配置总线：UI（Activity 存活期）与摇杆前台服务（Activity 销毁后仍运行）
  * 共享同一份 ManagerConfig 与摇杆实时状态。
@@ -64,6 +78,11 @@ object ConfigBus {
 
     private val _status = MutableStateFlow(PublishStatus())
     val status: StateFlow<PublishStatus> = _status
+
+    private val _scopeSync = MutableStateFlow(ScopeSyncStatus())
+    val scopeSync: StateFlow<ScopeSyncStatus> = _scopeSync
+
+    private val scopeSyncGen = AtomicLong(0L)
 
     /** 配置版本：每次 update 自增；发布成功时版本未变才清除 pending */
     @Volatile private var version = 0L
@@ -139,6 +158,87 @@ object ConfigBus {
             val p = SnapshotPublisher.probeModule(ctx)
             handler.post { onDone(p) }
         }
+    }
+
+    /**
+     * 按 Vector / LSPosed 作用域增量同步目标应用：新勾选的**第三方**包自动加入 apps（默认生效），
+     * 系统应用不参与（视同未勾选：此前同步进来的会随差集被移除）；
+     * 取消勾选的包从 apps 移除；普通自动同步只看与上次同步（scopeSeen）的差集，用户手动
+     * 删除 / 停用的应用不会被反复改回；forceReconcile=true（手动同步）时补齐所有已勾选
+     * 但当前不在列表中的第三方应用。作用域读取失败时不动配置，并更新 scopeSync 状态。
+     */
+    fun syncScopeAsync(forceReconcile: Boolean = false) {
+        val ctx = appContext ?: return
+        synchronized(lock) {
+            if (_scopeSync.value.syncing && !forceReconcile) return
+            _scopeSync.value = _scopeSync.value.copy(syncing = true)
+        }
+        val gen = scopeSyncGen.incrementAndGet()
+        io.execute {
+            val res = SnapshotPublisher.queryScopeWithSource(ctx)
+            if (res == null) {
+                handler.post {
+                    if (gen != scopeSyncGen.get()) return@post
+                    _scopeSync.value = ScopeSyncStatus(
+                        syncing = false,
+                        lastOk = false,
+                        via = "",
+                        count = _state.value.scopeSeen.size,
+                        at = System.currentTimeMillis(),
+                        message = "读取 Vector 作用域失败（模块未响应且 su/CLI 不可用）",
+                    )
+                }
+                return@execute
+            }
+            val filtered = res.packages.filter { InstalledApps.isThirdParty(ctx, it) }
+            handler.post {
+                if (gen != scopeSyncGen.get()) return@post
+                applyScope(filtered, res.via, forceReconcile)
+            }
+        }
+    }
+
+    private fun applyScope(scope: List<String>, via: String, forceReconcile: Boolean) {
+        val cur = _state.value
+        val seen = cur.scopeSeen.toSet()
+        val now = scope.toSet()
+        val removed = seen - now
+        val existing = cur.apps.map { it.pkg }.toSet()
+        val added = if (forceReconcile) {
+            scope.filter { it !in existing }
+        } else {
+            scope.filter { it !in seen && it !in existing }
+        }
+        val apps = cur.apps.filter { it.pkg !in removed } + added.map { AppPolicy(pkg = it) }
+        val nowMs = System.currentTimeMillis()
+        if (apps == cur.apps) {
+            // 只是基线变化（如已手动添加过的包被勾选）：落盘即可，不触发发布
+            if (now != seen) {
+                synchronized(lock) { _state.value = _state.value.copy(scopeSeen = scope) }
+                scheduleSave()
+            }
+        } else {
+            update { it.copy(apps = apps, scopeSeen = scope) }
+            // 作用域变化涉及新勾选/取消的目标应用，开启自动发布时立即发布，不等 800ms 防抖
+            if (cur.autoPublish) {
+                handler.removeCallbacks(autoPublishRunnable)
+                publishAsync(record = false)
+            }
+        }
+        val timeStr = SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(Date(nowMs))
+        val delta = buildList {
+            if (added.isNotEmpty()) add("+${added.size}")
+            if (removed.isNotEmpty()) add("-${removed.size}")
+        }.joinToString("/")
+        val suffix = if (delta.isNotEmpty()) "（$via · $delta · $timeStr）" else "（$via · $timeStr）"
+        _scopeSync.value = ScopeSyncStatus(
+            syncing = false,
+            lastOk = true,
+            via = via,
+            count = scope.size,
+            at = nowMs,
+            message = "已从 Vector 同步 ${scope.size} 个应用$suffix",
+        )
     }
 
     /** joystick 段：服务从未运行过 → 省略；运行过 → 始终显式写入（含关闭态） */

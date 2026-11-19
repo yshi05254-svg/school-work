@@ -45,27 +45,27 @@ data class CellDraft(
     val radioType: String = "lte",
     val mcc: String = "460",
     val mnc: String = "00",
-    val ci: Long = 12345001,
+    val ci: Long = 29395457,
     val lac: Int = 0,
-    val tac: Int = 22601,
+    val tac: Int = 4104,
     val pci: Int = 121,
     val psc: Int = 0,
     val cpid: Int = 0,
-    val arfcn: Int = 1650,
+    val arfcn: Int = 38950,
     val registered: Boolean = true,
-    val signalDbm: Int = -85,
+    val signalDbm: Int = -82,
 )
 
 data class WifiDraft(
-    val ssid: String = "Office-5G",
-    val bssid: String = "02:1a:11:00:00:01",
+    val ssid: String = "ChinaNet-5G",
+    val bssid: String = "48:4c:29:6a:31:c0",
     val signalDbm: Int = -55,
     val frequencyMhz: Int = 5180,
 )
 
 data class BtDraft(
-    val address: String = "02:1A:11:00:00:0A",
-    val name: String = "ven11-bt",
+    val address: String = "88:44:77:5B:19:C4",
+    val name: String = "FreeBuds 5",
     val rssi: Int = -60,
 )
 

@@ -158,43 +158,51 @@ object ConfigStore {
 
     // ---------------------------------------------------------------- 反序列化
 
-    private fun parse(o: JSONObject): ManagerConfig = ManagerConfig(
-        masterEnabled = o.optBoolean("masterEnabled", true),
-        serverLocation = o.optBoolean("serverLocation", true),
-        jitterEnabled = o.optBoolean("jitterEnabled", true),
-        jitterAmplitudeMeters = o.optDouble("jitterAmplitudeMeters", 8.0),
-        env = o.optJSONObject("env")?.let(::parseEnv) ?: ManagerConfig().env,
-        // 空包名条目从不发布（SnapshotBuilder 跳过），只是"手动添加未填写"的残留：加载即丢弃
-        apps = o.optJSONArray("apps")?.mapObj(::parseApp)?.filter { it.pkg.isNotBlank() }
-            ?: ManagerConfig().apps,
-        scopeSeen = o.optJSONArray("scopeSeen").stringList(),
-        excludedPackages = o.optJSONArray("excludedPackages").stringList(),
-        excludedUids = o.optJSONArray("excludedUids")?.let { arr ->
-            (0 until arr.length()).mapNotNull { idx -> arr.opt(idx) as? Int }
-        } ?: emptyList(),
-        sim = o.optJSONObject("sim")?.let(::parseSim) ?: SimDraft(),
-        history = o.optJSONArray("history")?.mapObj { h ->
-            PublishRecord(
-                at = h.optLong("at"),
-                ok = h.optBoolean("ok"),
-                via = h.optString("via"),
-                message = h.optString("message"),
-            )
-        }?.take(HISTORY_LIMIT) ?: emptyList(),
-        joystickSpeedMps = o.optDouble("joystickSpeedMps", 1.4),
-        joystickPresetId = o.optString("joystickPresetId", "walk"),
-        autoPublish = o.optBoolean("autoPublish", true),
-        customPresets = o.optJSONArray("customPresets")?.mapObj { p ->
-            val env = p.optJSONObject("env")?.let(::parseEnv) ?: return@mapObj null
-            Presets.NamedPreset(
-                id = p.optString("id"),
-                label = p.optString("label", env.name),
-                region = p.optString("region"),
-                env = env,
-                sim = p.optJSONObject("sim")?.let(::parseSim) ?: SimDraft(),
-            )
-        }?.filterNotNull() ?: emptyList(),
-    )
+    private fun parse(o: JSONObject): ManagerConfig {
+        val rawEnv = o.optJSONObject("env")?.let(::parseEnv) ?: ManagerConfig().env
+        val rawSim = o.optJSONObject("sim")?.let(::parseSim) ?: SimDraft()
+        val migratedPreset = Presets.all.firstOrNull { p ->
+            p.env.name == rawEnv.name && p.env.lat == rawEnv.lat && p.env.lon == rawEnv.lon &&
+                rawEnv.wifis.any { it.bssid.startsWith("02:1a:11:", ignoreCase = true) }
+        }
+        return ManagerConfig(
+            masterEnabled = o.optBoolean("masterEnabled", true),
+            serverLocation = o.optBoolean("serverLocation", true),
+            jitterEnabled = o.optBoolean("jitterEnabled", true),
+            jitterAmplitudeMeters = o.optDouble("jitterAmplitudeMeters", 8.0),
+            env = migratedPreset?.env ?: rawEnv,
+            // 空包名条目从不发布（SnapshotBuilder 跳过），只是"手动添加未填写"的残留：加载即丢弃
+            apps = o.optJSONArray("apps")?.mapObj(::parseApp)?.filter { it.pkg.isNotBlank() }
+                ?: ManagerConfig().apps,
+            scopeSeen = o.optJSONArray("scopeSeen").stringList(),
+            excludedPackages = o.optJSONArray("excludedPackages").stringList(),
+            excludedUids = o.optJSONArray("excludedUids")?.let { arr ->
+                (0 until arr.length()).mapNotNull { idx -> arr.opt(idx) as? Int }
+            } ?: emptyList(),
+            sim = migratedPreset?.sim ?: rawSim,
+            history = o.optJSONArray("history")?.mapObj { h ->
+                PublishRecord(
+                    at = h.optLong("at"),
+                    ok = h.optBoolean("ok"),
+                    via = h.optString("via"),
+                    message = h.optString("message"),
+                )
+            }?.take(HISTORY_LIMIT) ?: emptyList(),
+            joystickSpeedMps = o.optDouble("joystickSpeedMps", 1.4),
+            joystickPresetId = o.optString("joystickPresetId", "walk"),
+            autoPublish = o.optBoolean("autoPublish", true),
+            customPresets = o.optJSONArray("customPresets")?.mapObj { p ->
+                val env = p.optJSONObject("env")?.let(::parseEnv) ?: return@mapObj null
+                Presets.NamedPreset(
+                    id = p.optString("id"),
+                    label = p.optString("label", env.name),
+                    region = p.optString("region"),
+                    env = env,
+                    sim = p.optJSONObject("sim")?.let(::parseSim) ?: SimDraft(),
+                )
+            }?.filterNotNull() ?: emptyList(),
+        )
+    }
 
     private fun parseEnv(o: JSONObject): EnvDraft = EnvDraft(
         name = o.optString("name", "自定义"),

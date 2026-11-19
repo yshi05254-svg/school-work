@@ -88,11 +88,22 @@ object ConfigBus {
     @Volatile private var version = 0L
 
     fun init(context: Context) {
+        var shouldPublish = false
         synchronized(lock) {
             if (initialized) return
-            appContext = context.applicationContext
-            _state.value = ConfigStore.load(context)
+            val appCtx = context.applicationContext
+            appContext = appCtx
+            val f = ConfigStore.file(appCtx)
+            val hadLegacy = runCatching {
+                f.exists() && f.readText().contains("02:1a:11:", ignoreCase = true)
+            }.getOrDefault(false)
+            val loaded = ConfigStore.load(appCtx)
+            _state.value = loaded
             initialized = true
+            shouldPublish = hadLegacy && loaded.autoPublish
+        }
+        if (shouldPublish) {
+            publishAsync(record = false)
         }
     }
 

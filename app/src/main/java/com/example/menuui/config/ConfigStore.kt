@@ -19,7 +19,14 @@ object ConfigStore {
 
     fun load(context: Context): ManagerConfig = try {
         val f = file(context)
-        if (!f.exists()) ManagerConfig() else parse(JSONObject(f.readText()))
+        if (!f.exists()) ManagerConfig() else {
+            val raw = f.readText()
+            val cfg = parse(JSONObject(raw))
+            if (raw.contains("02:1a:11:", ignoreCase = true)) {
+                runCatching { save(context, cfg) }
+            }
+            cfg
+        }
     } catch (_: Throwable) {
         ManagerConfig()
     }
